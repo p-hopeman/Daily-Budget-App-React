@@ -16,8 +16,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import NotificationService from './NotificationService';
 
 const { width, height } = Dimensions.get('window');
+
+// NotificationService-Instanz
+const notificationService = new NotificationService();
 
 export default function App() {
   const [dailyBudget, setDailyBudget] = useState(0);
@@ -30,10 +34,11 @@ export default function App() {
   const [isDeposit, setIsDeposit] = useState(true);
   const [showingSettings, setShowingSettings] = useState(false);
 
-  // Lade Daten beim App-Start
+  // Lade Daten beim App-Start und initialisiere Notifications
   useEffect(() => {
     loadData();
     calculateRemainingDays();
+    initializeNotifications();
     
     // Timer für tägliche Aktualisierung
     const interval = setInterval(() => {
@@ -44,10 +49,41 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Initialisiere Notification-System
+  const initializeNotifications = async () => {
+    try {
+      // Registriere für Push Notifications und frage nach Permissions
+      await notificationService.registerForPushNotificationsAsync();
+      
+      console.log('Notifications erfolgreich initialisiert!');
+    } catch (error) {
+      console.error('Fehler beim Initialisieren der Notifications:', error);
+    }
+  };
+
+  // Aktualisiere tägliche Erinnerungen mit aktuellem Budget
+  const updateDailyReminders = async () => {
+    try {
+      if (dailyBudget !== null && dailyBudget !== undefined) {
+        await notificationService.scheduleDailyBudgetReminders(dailyBudget);
+        console.log(`Tägliche Erinnerungen aktualisiert mit Budget: ${dailyBudget}`);
+      }
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren der täglichen Erinnerungen:', error);
+    }
+  };
+
   // Berechne Tagesbudget wenn sich Budget oder Tage ändern
   useEffect(() => {
     calculateDailyBudget();
   }, [remainingBudget, remainingDays]);
+
+  // Aktualisiere tägliche Erinnerungen wenn sich das Tagesbudget ändert
+  useEffect(() => {
+    if (dailyBudget !== null && dailyBudget !== undefined && !isNaN(dailyBudget)) {
+      updateDailyReminders();
+    }
+  }, [dailyBudget]);
 
   // App Focus Handler - behebt Bug beim Wechseln zwischen Apps
   useEffect(() => {
@@ -123,7 +159,7 @@ export default function App() {
     return newBudget;
   };
 
-  const addTransaction = () => {
+  const addTransaction = async () => {
     const cleanAmount = transactionAmount.replace(',', '.');
     const amount = parseFloat(cleanAmount);
     
@@ -150,6 +186,32 @@ export default function App() {
     
     setTransactions(newTransactions);
     saveData(newBudget, newTransactions);
+    
+    // Berechne neues Tagesbudget und sende Notification
+    const newDailyBudget = remainingDays > 0 ? newBudget / remainingDays : 0;
+    
+    try {
+      // Sende Budget-Update-Notification
+      await notificationService.sendBudgetUpdateNotification(
+        newDailyBudget,
+        newBudget,
+        remainingDays,
+        amount,
+        !isDeposit // isExpense
+      );
+      
+      // Prüfe auf niedrig-Budget-Warnung
+      if (newDailyBudget <= 5) {
+        await notificationService.scheduleLowBudgetWarning(newDailyBudget);
+      }
+      
+      // Sende Motivations-Notification bei gutem Budget
+      if (newDailyBudget > 20) {
+        await notificationService.sendMotivationNotification(newDailyBudget);
+      }
+    } catch (error) {
+      console.error('Fehler beim Senden der Notification:', error);
+    }
     
     setTransactionAmount('');
     setTransactionDescription('');
