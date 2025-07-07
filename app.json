@@ -17,13 +17,15 @@
       "bundleIdentifier": "com.philipp.dailybudgetapp.react",
       "entitlements": {
         "com.apple.security.application-groups": [
+          "group.com.philipp.dailybudgetapp.react",
           "group.com.philipp.dailybudgetapp.react"
         ]
       },
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -36,6 +38,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "abb3a3c9-9b64-48e7-a172-e99157b89eb3"
+      }
     }
   }
 }
