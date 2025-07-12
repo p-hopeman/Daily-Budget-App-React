@@ -262,23 +262,73 @@ export default function App() {
                   try {
                     console.log('🔔 Button geklickt!');
                     
-                    // Teste direkt Browser Notification API
+                    // Prüfe Browser und Notification Support
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+                    
+                    console.log('🔍 Browser Info:', {
+                      isIOS,
+                      isSafari,
+                      userAgent: navigator.userAgent,
+                      notificationSupported: 'Notification' in window,
+                      currentPermission: 'Notification' in window ? Notification.permission : 'nicht verfügbar'
+                    });
+                    
                     if ('Notification' in window) {
                       Alert.alert(
                         '🔔 Notification Test', 
-                        `Browser unterstützt Notifications!\n\nAktueller Status: ${Notification.permission}`,
+                        `Browser: ${isSafari ? 'Safari' : 'Anderer'}\nPlatform: ${isIOS ? 'iOS' : 'Desktop'}\nStatus: ${Notification.permission}\n\n${isIOS ? 'Hinweis: iOS benötigt möglicherweise PWA-Modus für Benachrichtigungen.' : ''}`,
                         [
                           {
                             text: 'Berechtigung anfordern',
                             onPress: async () => {
-                              const permission = await Notification.requestPermission();
-                              if (permission === 'granted') {
-                                new Notification('✅ Erfolgreich!', {
-                                  body: 'Benachrichtigungen sind jetzt aktiv!',
-                                  icon: '/favicon.ico'
-                                });
+                              try {
+                                console.log('🔔 Berechtigung wird angefragt...');
+                                const permission = await Notification.requestPermission();
+                                console.log('🔔 Berechtigung erhalten:', permission);
+                                
+                                if (permission === 'granted') {
+                                  // Warte kurz und teste dann Notification
+                                  setTimeout(() => {
+                                    try {
+                                      console.log('🔔 Erstelle Benachrichtigung...');
+                                      const notification = new Notification('✅ Erfolgreich!', {
+                                        body: 'Benachrichtigungen sind jetzt aktiv!',
+                                        icon: '/favicon.ico',
+                                        badge: '/favicon.ico',
+                                        tag: 'test-notification',
+                                        requireInteraction: true,
+                                        silent: false
+                                      });
+                                      
+                                      notification.onshow = () => {
+                                        console.log('🔔 Benachrichtigung wird angezeigt');
+                                        Alert.alert('✅ Erfolgreich!', 'Benachrichtigung wird angezeigt!');
+                                      };
+                                      
+                                      notification.onerror = (error) => {
+                                        console.error('🔔 Benachrichtigung Fehler:', error);
+                                        Alert.alert('❌ Fehler', 'Benachrichtigung konnte nicht angezeigt werden.');
+                                      };
+                                      
+                                      notification.onclick = () => {
+                                        console.log('🔔 Benachrichtigung geklickt');
+                                        notification.close();
+                                      };
+                                      
+                                    } catch (notificationError) {
+                                      console.error('🔔 Notification Erstellungsfehler:', notificationError);
+                                      Alert.alert('❌ Fehler', `Notification konnte nicht erstellt werden: ${notificationError.message}`);
+                                    }
+                                  }, 500);
+                                  
+                                } else {
+                                  Alert.alert('❌ Verweigert', `Berechtigung wurde verweigert: ${permission}`);
+                                }
+                              } catch (permissionError) {
+                                console.error('🔔 Berechtigung Fehler:', permissionError);
+                                Alert.alert('❌ Fehler', `Berechtigung konnte nicht angefragt werden: ${permissionError.message}`);
                               }
-                              Alert.alert('Status', `Neue Berechtigung: ${permission}`);
                             }
                           },
                           { text: 'OK' }
@@ -307,32 +357,123 @@ export default function App() {
               <TouchableOpacity 
                 style={styles.debugButton}
                 onPress={async () => {
-                  Alert.alert('🔔 Notification Test', 'Button funktioniert!', [
-                    {
-                      text: 'Test Browser Notification',
-                      onPress: async () => {
-                        try {
-                          if ('Notification' in window) {
-                            const permission = await Notification.requestPermission();
-                            if (permission === 'granted') {
-                              new Notification('✅ Test erfolgreich!', {
-                                body: 'Browser-Benachrichtigungen funktionieren!',
-                                icon: '/favicon.ico'
-                              });
-                              Alert.alert('✅ Erfolg', 'Benachrichtigung gesendet!');
-                            } else {
-                              Alert.alert('❌ Verweigert', 'Benachrichtigung wurde abgelehnt.');
+                  try {
+                    // Erweiterte Browser-Erkennung
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+                    const isStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+                    
+                    console.log('🔍 Erweiterte Browser Info:', {
+                      isIOS,
+                      isSafari,
+                      isStandalone,
+                      userAgent: navigator.userAgent,
+                      notificationSupported: 'Notification' in window,
+                      permission: 'Notification' in window ? Notification.permission : 'nicht verfügbar',
+                      serviceWorkerSupported: 'serviceWorker' in navigator
+                    });
+                    
+                    Alert.alert(
+                      '🔔 Detaillierter Test', 
+                      `Browser: ${isSafari ? 'Safari' : 'Anderer'}\nPlatform: ${isIOS ? 'iOS' : 'Desktop'}\nPWA-Modus: ${isStandalone ? 'Ja' : 'Nein'}\nStatus: ${Notification.permission}\n\n${isIOS && !isStandalone ? 'Hinweis: iOS Safari benötigt PWA-Modus für Benachrichtigungen. Auf iPhone: "Zum Home-Bildschirm hinzufügen"' : ''}`,
+                      [
+                        {
+                          text: 'Sofort testen',
+                          onPress: async () => {
+                            try {
+                              console.log('🔔 Starte sofortigen Test...');
+                              
+                              if ('Notification' in window) {
+                                // Prüfe aktuelle Berechtigung
+                                let permission = Notification.permission;
+                                console.log('🔔 Aktuelle Berechtigung:', permission);
+                                
+                                if (permission === 'default') {
+                                  console.log('🔔 Frage Berechtigung an...');
+                                  permission = await Notification.requestPermission();
+                                  console.log('🔔 Neue Berechtigung:', permission);
+                                }
+                                
+                                if (permission === 'granted') {
+                                  console.log('🔔 Erstelle Test-Benachrichtigung...');
+                                  
+                                  // Erstelle eine Test-Benachrichtigung mit allen Event-Handlers
+                                  const notification = new Notification('🎉 Test erfolgreich!', {
+                                    body: `Browser-Benachrichtigungen funktionieren!\n\nBrowser: ${isSafari ? 'Safari' : 'Anderer'}\nPlatform: ${isIOS ? 'iOS' : 'Desktop'}\nPWA: ${isStandalone ? 'Ja' : 'Nein'}`,
+                                    icon: '/favicon.ico',
+                                    badge: '/favicon.ico',
+                                    tag: 'detailed-test',
+                                    requireInteraction: true,
+                                    silent: false,
+                                    timestamp: Date.now()
+                                  });
+                                  
+                                  // Event-Handler für Debugging
+                                  notification.onshow = () => {
+                                    console.log('🔔 Benachrichtigung wird angezeigt');
+                                    setTimeout(() => {
+                                      Alert.alert('✅ Erfolgreich!', 'Benachrichtigung wird angezeigt!');
+                                    }, 1000);
+                                  };
+                                  
+                                  notification.onerror = (error) => {
+                                    console.error('🔔 Benachrichtigung Fehler:', error);
+                                    Alert.alert('❌ Fehler', 'Benachrichtigung konnte nicht angezeigt werden.');
+                                  };
+                                  
+                                  notification.onclick = () => {
+                                    console.log('🔔 Benachrichtigung geklickt');
+                                    Alert.alert('👆 Geklickt!', 'Benachrichtigung wurde geklickt!');
+                                    notification.close();
+                                  };
+                                  
+                                  notification.onclose = () => {
+                                    console.log('🔔 Benachrichtigung geschlossen');
+                                  };
+                                  
+                                  // Schließe automatisch nach 10 Sekunden
+                                  setTimeout(() => {
+                                    notification.close();
+                                  }, 10000);
+                                  
+                                } else if (permission === 'denied') {
+                                  Alert.alert(
+                                    '❌ Verweigert', 
+                                    'Benachrichtigungen wurden dauerhaft verweigert. Bitte Browser-Einstellungen prüfen.',
+                                    [
+                                      { text: 'OK' },
+                                      { 
+                                        text: 'Hilfe',
+                                        onPress: () => {
+                                          Alert.alert(
+                                            '💡 Hilfe',
+                                            isIOS ? 
+                                              'iPhone Safari:\n1. App zum Home-Bildschirm hinzufügen\n2. Als PWA öffnen\n3. Benachrichtigungen aktivieren' :
+                                              'Desktop:\n1. Adressleiste: Schloss-Symbol klicken\n2. Benachrichtigungen auf "Zulassen" setzen\n3. Seite neu laden'
+                                          );
+                                        }
+                                      }
+                                    ]
+                                  );
+                                } else {
+                                  Alert.alert('❓ Unbekannt', `Unbekannter Berechtigungsstatus: ${permission}`);
+                                }
+                              } else {
+                                Alert.alert('❌ Nicht unterstützt', 'Browser unterstützt keine Benachrichtigungen.');
+                              }
+                            } catch (error) {
+                              console.error('🔔 Test Fehler:', error);
+                              Alert.alert('❌ Fehler', `Test fehlgeschlagen: ${error.message}`);
                             }
-                          } else {
-                            Alert.alert('❌ Nicht unterstützt', 'Browser unterstützt keine Benachrichtigungen.');
                           }
-                        } catch (error) {
-                          Alert.alert('❌ Fehler', error.message);
-                        }
-                      }
-                    },
-                    { text: 'Abbrechen', style: 'cancel' }
-                  ]);
+                        },
+                        { text: 'Abbrechen', style: 'cancel' }
+                      ]
+                    );
+                  } catch (error) {
+                    console.error('🔔 Button Fehler:', error);
+                    Alert.alert('❌ Fehler', error.message);
+                  }
                 }}
               >
                 <Text style={styles.debugButtonText}>
