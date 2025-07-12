@@ -335,110 +335,72 @@ export default function App() {
               <View style={styles.headerSpacer} />
               <TouchableOpacity
                 style={styles.settingsButton}
-                onPress={async () => {
-                  if (isWeb) {
-                    const iosSettings = notificationService.checkIOSSettings();
-                    const pwaStatus = pwaService ? pwaService.getStatus() : null;
-                    const permissionStatus = notificationService.getPermissionStatus();
-                    
-                    if (permissionStatus === 'default') {
-                      // Berechtigung noch nicht angefordert
-                      Alert.alert(
-                        '🔔 Benachrichtigungen aktivieren',
-                        'Möchtest du Benachrichtigungen für Budget-Updates aktivieren?',
-                        [
-                          {
-                            text: 'Ja, aktivieren',
-                            onPress: async () => {
-                              const granted = await notificationService.requestPermission();
-                              if (granted) {
-                                await notificationService.sendTestNotification();
-                                Alert.alert('✅ Erfolgreich', 'Benachrichtigungen sind jetzt aktiv!');
+                onPress={() => {
+                  console.log('🔔 Button wurde geklickt!');
+                  Alert.alert('🔔 Debug', 'Button funktioniert!', [
+                    {
+                      text: 'Test Notification',
+                      onPress: async () => {
+                        console.log('Teste Benachrichtigungen...');
+                        try {
+                          if (isWeb) {
+                            console.log('Web-Plattform erkannt');
+                            console.log('Notification-Support:', 'Notification' in window);
+                            console.log('Permission Status:', Notification.permission);
+                            
+                            if ('Notification' in window) {
+                              if (Notification.permission === 'default') {
+                                console.log('Fordere Berechtigung an...');
+                                const permission = await Notification.requestPermission();
+                                console.log('Permission Antwort:', permission);
+                                
+                                if (permission === 'granted') {
+                                  console.log('Sende Test-Notification...');
+                                  const notification = new Notification('🎉 Test erfolgreich!', {
+                                    body: 'Benachrichtigungen funktionieren jetzt!',
+                                    icon: '/favicon.ico'
+                                  });
+                                  Alert.alert('✅ Erfolgreich', 'Benachrichtigungen sind aktiv!');
+                                } else {
+                                  Alert.alert('❌ Abgelehnt', 'Benachrichtigungen wurden abgelehnt.');
+                                }
+                              } else if (Notification.permission === 'granted') {
+                                console.log('Sende Test-Notification...');
+                                const notification = new Notification('🎉 Test erfolgreich!', {
+                                  body: 'Benachrichtigungen funktionieren bereits!',
+                                  icon: '/favicon.ico'
+                                });
+                                Alert.alert('✅ Bereits aktiv', 'Benachrichtigungen sind bereits aktiv!');
                               } else {
-                                Alert.alert(
-                                  '❌ Berechtigung verweigert',
-                                  'Benachrichtigungen wurden abgelehnt. Du kannst sie in den Safari-Einstellungen wieder aktivieren.'
-                                );
+                                Alert.alert('❌ Blockiert', 'Benachrichtigungen sind blockiert. Aktiviere sie in den Browser-Einstellungen.');
                               }
+                            } else {
+                              Alert.alert('❌ Nicht unterstützt', 'Dieser Browser unterstützt keine Benachrichtigungen.');
                             }
-                          },
-                          { text: 'Nein', style: 'cancel' }
-                        ]
-                      );
-                    } else if (permissionStatus === 'granted') {
-                      // Berechtigung bereits erteilt - sende Test-Notification
-                      await notificationService.sendTestNotification();
-                      
-                      if (iosSettings) {
-                        Alert.alert(
-                          '🔔 iOS PWA Status',
-                          `Benachrichtigungen: ${iosSettings.permissionStatus}\nPWA-Modus: ${pwaStatus?.isStandalone ? 'Ja' : 'Nein'}\nService Worker: ${pwaStatus?.hasServiceWorker ? 'Ja' : 'Nein'}\n\n${iosSettings.recommendation}`,
-                          [
-                            {
-                              text: 'Setup-Anleitung',
-                              onPress: () => {
-                                Alert.alert(
-                                  '📱 PWA Setup für iOS',
-                                  '1. Prüfe iOS Version (16.4+ nötig)\n2. Tippe "Teilen" → "Zum Home-Bildschirm"\n3. Öffne App vom Home-Bildschirm\n4. Erlaube Benachrichtigungen\n5. Prüfe Einstellungen → Benachrichtigungen\n\n💡 Nur im PWA-Modus funktionieren persistente Benachrichtigungen!'
-                                );
-                              }
-                            },
-                            pwaStatus?.canInstall ? {
-                              text: 'PWA Installieren',
-                              onPress: () => {
-                                pwaService?.showInstallPrompt();
-                              }
-                            } : null,
-                            { text: 'OK' }
-                          ].filter(Boolean)
-                        );
-                      } else {
-                        Alert.alert('✅ Test', 'Web-Benachrichtigung gesendet!');
+                          } else {
+                            Alert.alert('Info', 'Native App - Benachrichtigungen bereits konfiguriert');
+                          }
+                        } catch (error) {
+                          console.error('Fehler:', error);
+                          Alert.alert('❌ Fehler', `Fehler beim Aktivieren: ${error.message}`);
+                        }
                       }
-                    } else {
-                      // Berechtigung wurde verweigert
-                      Alert.alert(
-                        '❌ Benachrichtigungen deaktiviert',
-                        'Benachrichtigungen wurden abgelehnt oder blockiert.\n\nSo aktivierst du sie wieder:\n\n1. Safari → Einstellungen → Websites → Benachrichtigungen\n2. Suche deine App\n3. Stelle auf "Erlauben"\n\nOder:\n1. iOS Einstellungen → Benachrichtigungen\n2. Suche deine App\n3. Aktiviere "Benachrichtigungen erlauben"',
-                        [
-                          {
-                            text: 'Erneut versuchen',
-                            onPress: async () => {
-                              const granted = await notificationService.requestPermission();
-                              if (granted) {
-                                await notificationService.sendTestNotification();
-                                Alert.alert('✅ Erfolgreich', 'Benachrichtigungen sind jetzt aktiv!');
-                              } else {
-                                Alert.alert('❌ Immer noch blockiert', 'Bitte aktiviere Benachrichtigungen manuell in den Einstellungen.');
-                              }
-                            }
-                          },
-                          { text: 'OK' }
-                        ]
-                      );
-                    }
-                  } else {
-                    Alert.alert('Info', 'Einstellungen kommen bald!');
-                  }
+                    },
+                    { text: 'Abbrechen', style: 'cancel' }
+                  ]);
                 }}
               >
                 <Ionicons 
-                  name={isWeb ? 
-                    (notificationService.getPermissionStatus() === 'granted' ? "notifications" : "notifications-outline") : 
-                    "settings-outline"
-                  } 
+                  name={isWeb ? "notifications-outline" : "settings-outline"} 
                   size={24} 
-                  color={isWeb ? 
-                    (notificationService.getPermissionStatus() === 'granted' ? "#00C851" : "#FF6B6B") : 
-                    "#666"
-                  } 
+                  color="#666"
                 />
               </TouchableOpacity>
             </View>
             <Text style={styles.statusText}>VERFÜGBAR</Text>
             <Text style={styles.mainAmount}>{formatCurrency(dailyBudget)}</Text>
             <Text style={styles.subtitle}>Tagesbudget</Text>
-            {isWeb && notificationService.getPermissionStatus() !== 'granted' && (
+            {isWeb && (
               <Text style={styles.notificationHint}>
                 💡 Tippe auf 🔔 für Benachrichtigungen
               </Text>
