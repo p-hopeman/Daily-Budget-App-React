@@ -19,12 +19,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import NotificationService from './NotificationService';
 import WebNotificationService from './WebNotificationService';
+import PWAService from './PWAService';
 
 const { width, height } = Dimensions.get('window');
 
 // Plattform-spezifische NotificationService-Instanz
 const isWeb = Platform.OS === 'web';
 const notificationService = isWeb ? new WebNotificationService() : new NotificationService();
+const pwaService = isWeb ? new PWAService() : null;
 
 export default function App() {
   const [dailyBudget, setDailyBudget] = useState(0);
@@ -56,6 +58,20 @@ export default function App() {
   const initializeNotifications = async () => {
     try {
       if (isWeb) {
+        // PWA initialisieren (Service Worker + Manifest)
+        if (pwaService) {
+          const pwaInitialized = await pwaService.initialize();
+          console.log('PWA Status:', pwaService.getStatus());
+          
+          if (pwaInitialized && pwaService.registration) {
+            console.log('✅ PWA erfolgreich initialisiert!');
+            // Verknüpfe Service Worker mit Notification Service
+            if (notificationService.setServiceWorkerRegistration) {
+              notificationService.setServiceWorkerRegistration(pwaService.registration);
+            }
+          }
+        }
+        
         // Web Notifications initialisieren
         if (notificationService.isWebNotificationSupported()) {
           const granted = await notificationService.requestPermission();
@@ -67,7 +83,7 @@ export default function App() {
               let message = 'Web-Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates auch im Browser.';
               
               if (iosSettings && !iosSettings.isStandalone) {
-                message = 'Benachrichtigungen aktiv! 🎉\n\n💡 Tipp: Füge diese App zum Home-Bildschirm hinzu für die beste Erfahrung auf iOS.';
+                message = 'Benachrichtigungen aktiv! 🎉\n\n💡 Tipp: Füge diese App zum Home-Bildschirm hinzu für die beste PWA-Erfahrung auf iOS.';
               }
               
               notificationService.sendNotification(
@@ -321,22 +337,30 @@ export default function App() {
                     await notificationService.sendTestNotification();
                     
                     const iosSettings = notificationService.checkIOSSettings();
+                    const pwaStatus = pwaService ? pwaService.getStatus() : null;
+                    
                     if (iosSettings) {
                       Alert.alert(
-                        '🔔 iOS Benachrichtigungen',
-                        `Status: ${iosSettings.permissionStatus}\n\n${iosSettings.recommendation}`,
+                        '🔔 iOS PWA Status',
+                        `Benachrichtigungen: ${iosSettings.permissionStatus}\nPWA-Modus: ${pwaStatus?.isStandalone ? 'Ja' : 'Nein'}\nService Worker: ${pwaStatus?.hasServiceWorker ? 'Ja' : 'Nein'}\n\n${iosSettings.recommendation}`,
                         [
                           {
-                            text: 'Anleitung zeigen',
+                            text: 'Setup-Anleitung',
                             onPress: () => {
                               Alert.alert(
-                                '📱 iOS Setup-Anleitung',
-                                '1. Prüfe iOS Version (16.4+ nötig)\n2. Tippe "Teilen" → "Zum Home-Bildschirm"\n3. Öffne App vom Home-Bildschirm\n4. Erlaube Benachrichtigungen\n5. Prüfe Einstellungen → Benachrichtigungen'
+                                '📱 PWA Setup für iOS',
+                                '1. Prüfe iOS Version (16.4+ nötig)\n2. Tippe "Teilen" → "Zum Home-Bildschirm"\n3. Öffne App vom Home-Bildschirm\n4. Erlaube Benachrichtigungen\n5. Prüfe Einstellungen → Benachrichtigungen\n\n💡 Nur im PWA-Modus funktionieren persistente Benachrichtigungen!'
                               );
                             }
                           },
+                          pwaStatus?.canInstall ? {
+                            text: 'PWA Installieren',
+                            onPress: () => {
+                              pwaService?.showInstallPrompt();
+                            }
+                          } : null,
                           { text: 'OK' }
-                        ]
+                        ].filter(Boolean)
                       );
                     } else {
                       Alert.alert('✅ Test', 'Web-Benachrichtigung gesendet!');

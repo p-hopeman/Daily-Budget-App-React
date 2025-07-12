@@ -4,8 +4,9 @@ class WebNotificationService {
   constructor() {
     this.isSupported = typeof window !== 'undefined' && 'Notification' in window;
     this.permission = this.isSupported ? Notification.permission : 'default';
-    this.isIOSStandalone = window.navigator.standalone === true;
+    this.isIOSStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
     this.isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    this.serviceWorkerRegistration = null;
   }
 
   // Prüfe ob Web Notifications unterstützt werden
@@ -64,17 +65,23 @@ class WebNotificationService {
     }
   }
 
-  // Sende Browser-Notification
+  // Sende Browser-Notification (mit PWA Service Worker Support)
   async sendNotification(title, body, options = {}) {
     if (!this.isSupported || this.permission !== 'granted') {
       console.log('Web Notifications nicht verfügbar oder nicht berechtigt');
       return null;
     }
 
+    // Wenn im PWA-Modus und Service Worker verfügbar, verwende Service Worker
+    if (this.isIOSStandalone && this.serviceWorkerRegistration) {
+      console.log('Verwende Service Worker für PWA-Notification');
+      return this.sendServiceWorkerNotification(title, body, options);
+    }
+
     try {
       const defaultOptions = {
-        icon: '/assets/icon.png',
-        badge: '/assets/icon.png',
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
         tag: 'daily-budget-app',
         requireInteraction: false,
         silent: false,
@@ -227,6 +234,44 @@ class WebNotificationService {
     );
   }
 
+  // Setze Service Worker Registration für PWA-Benachrichtigungen
+  setServiceWorkerRegistration(registration) {
+    this.serviceWorkerRegistration = registration;
+    console.log('Service Worker Registration für Notifications gesetzt');
+  }
+
+  // Sende Notification über Service Worker (für PWA)
+  async sendServiceWorkerNotification(title, body, options = {}) {
+    if (!this.serviceWorkerRegistration) {
+      console.log('Kein Service Worker für Notifications verfügbar');
+      return this.sendNotification(title, body, options);
+    }
+
+    try {
+      const defaultOptions = {
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        vibrate: [100, 50, 100],
+        requireInteraction: true,
+        tag: 'daily-budget-app',
+        timestamp: Date.now(),
+        ...options
+      };
+
+      await this.serviceWorkerRegistration.showNotification(title, {
+        body,
+        ...defaultOptions
+      });
+
+      console.log('Service Worker Notification gesendet');
+      return { close: () => {} }; // Mock notification object
+    } catch (error) {
+      console.error('Service Worker Notification Fehler:', error);
+      // Fallback auf normale Notification
+      return this.sendNotification(title, body, options);
+    }
+  }
+
   // Prüfe iOS-spezifische Einstellungen
   checkIOSSettings() {
     if (this.isIOSSafari) {
@@ -234,8 +279,9 @@ class WebNotificationService {
         isStandalone: this.isIOSStandalone,
         hasNotificationSupport: this.isSupported,
         permissionStatus: this.permission,
+        hasServiceWorker: this.serviceWorkerRegistration !== null,
         recommendation: !this.isIOSStandalone ? 
-          'Füge die App zum Home-Bildschirm hinzu für optimale Benachrichtigungen' : 
+          'Füge die App zum Home-Bildschirm hinzu für optimale PWA-Benachrichtigungen' : 
           'Perfekt eingerichtet! 🎉'
       };
     }
