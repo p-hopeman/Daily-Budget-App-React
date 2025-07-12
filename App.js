@@ -63,9 +63,16 @@ export default function App() {
             console.log('✅ Web Notifications erfolgreich aktiviert!');
             // Sende Willkommens-Notification
             setTimeout(() => {
+              const iosSettings = notificationService.checkIOSSettings();
+              let message = 'Web-Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates auch im Browser.';
+              
+              if (iosSettings && !iosSettings.isStandalone) {
+                message = 'Benachrichtigungen aktiv! 🎉\n\n💡 Tipp: Füge diese App zum Home-Bildschirm hinzu für die beste Erfahrung auf iOS.';
+              }
+              
               notificationService.sendNotification(
                 '🎉 Daily Budget App',
-                'Web-Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates auch im Browser.',
+                message,
                 { requireInteraction: true }
               );
             }, 1000);
@@ -308,11 +315,32 @@ export default function App() {
               <View style={styles.headerSpacer} />
               <TouchableOpacity
                 style={styles.settingsButton}
-                onPress={() => {
+                onPress={async () => {
                   if (isWeb) {
-                    // Test Web Notification
-                    notificationService.sendTestNotification();
-                    Alert.alert('✅ Test', 'Web-Benachrichtigung gesendet!');
+                    // Test Web Notification und zeige iOS-spezifische Infos
+                    await notificationService.sendTestNotification();
+                    
+                    const iosSettings = notificationService.checkIOSSettings();
+                    if (iosSettings) {
+                      Alert.alert(
+                        '🔔 iOS Benachrichtigungen',
+                        `Status: ${iosSettings.permissionStatus}\n\n${iosSettings.recommendation}`,
+                        [
+                          {
+                            text: 'Anleitung zeigen',
+                            onPress: () => {
+                              Alert.alert(
+                                '📱 iOS Setup-Anleitung',
+                                '1. Prüfe iOS Version (16.4+ nötig)\n2. Tippe "Teilen" → "Zum Home-Bildschirm"\n3. Öffne App vom Home-Bildschirm\n4. Erlaube Benachrichtigungen\n5. Prüfe Einstellungen → Benachrichtigungen'
+                              );
+                            }
+                          },
+                          { text: 'OK' }
+                        ]
+                      );
+                    } else {
+                      Alert.alert('✅ Test', 'Web-Benachrichtigung gesendet!');
+                    }
                   } else {
                     Alert.alert('Info', 'Einstellungen kommen bald!');
                   }

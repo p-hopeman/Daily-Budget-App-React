@@ -4,10 +4,26 @@ class WebNotificationService {
   constructor() {
     this.isSupported = typeof window !== 'undefined' && 'Notification' in window;
     this.permission = this.isSupported ? Notification.permission : 'default';
+    this.isIOSStandalone = window.navigator.standalone === true;
+    this.isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   }
 
   // Prüfe ob Web Notifications unterstützt werden
   isWebNotificationSupported() {
+    // iOS Web Notifications funktionieren nur in PWA-Modus oder iOS 16.4+
+    if (this.isIOSSafari && !this.isIOSStandalone) {
+      const userAgent = navigator.userAgent;
+      const match = userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+      if (match) {
+        const version = parseInt(match[1], 10);
+        const minor = parseInt(match[2], 10);
+        // iOS 16.4 = Version 16, Minor 4
+        if (version < 16 || (version === 16 && minor < 4)) {
+          console.log('iOS Version zu alt für Web Notifications. Benötigt iOS 16.4+');
+          return false;
+        }
+      }
+    }
     return this.isSupported;
   }
 
@@ -18,19 +34,28 @@ class WebNotificationService {
       return false;
     }
 
+    // Spezielle Behandlung für iOS
+    if (this.isIOSSafari && !this.isIOSStandalone) {
+      console.log('💡 Hinweis: Für beste Erfahrung auf iOS die Website zum Home-Bildschirm hinzufügen');
+    }
+
     if (this.permission === 'granted') {
       return true;
     }
 
     try {
+      // Für iOS: Berechtigung muss durch User-Interaktion ausgelöst werden
       const permission = await Notification.requestPermission();
       this.permission = permission;
       
       if (permission === 'granted') {
         console.log('✅ Web Notifications berechtigt!');
         return true;
+      } else if (permission === 'denied') {
+        console.log('❌ Web Notifications dauerhaft abgelehnt');
+        return false;
       } else {
-        console.log('❌ Web Notifications abgelehnt');
+        console.log('⏸️ Web Notifications vorerst abgelehnt');
         return false;
       }
     } catch (error) {
@@ -48,11 +73,12 @@ class WebNotificationService {
 
     try {
       const defaultOptions = {
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
+        icon: '/assets/icon.png',
+        badge: '/assets/icon.png',
         tag: 'daily-budget-app',
         requireInteraction: false,
         silent: false,
+        timestamp: Date.now(),
         ...options
       };
 
@@ -61,11 +87,11 @@ class WebNotificationService {
         ...defaultOptions
       });
 
-      // Auto-close nach 5 Sekunden (außer requireInteraction ist true)
+      // Auto-close nach 8 Sekunden für iOS (länger als Standard)
       if (!defaultOptions.requireInteraction) {
         setTimeout(() => {
           notification.close();
-        }, 5000);
+        }, this.isIOSSafari ? 8000 : 5000);
       }
 
       // Event Listeners
@@ -79,6 +105,10 @@ class WebNotificationService {
 
       notification.onerror = (error) => {
         console.error('Notification Error:', error);
+      };
+
+      notification.onshow = () => {
+        console.log('Notification wurde angezeigt');
       };
 
       return notification;
@@ -178,16 +208,38 @@ class WebNotificationService {
     }
   }
 
-  // Teste Web Notifications
+  // Teste Web Notifications mit iOS-spezifischer Info
   async sendTestNotification() {
+    let message = 'Web Notifications funktionieren! 🎉';
+    
+    if (this.isIOSSafari && !this.isIOSStandalone) {
+      message = 'Web Notifications aktiv! 🎉\n💡 Tipp: App zum Home-Bildschirm hinzufügen für beste Erfahrung';
+    }
+
     return await this.sendNotification(
       '📱 Test-Benachrichtigung',
-      'Web Notifications funktionieren! 🎉',
+      message,
       {
         tag: 'test',
-        requireInteraction: true
+        requireInteraction: true,
+        data: { type: 'test' }
       }
     );
+  }
+
+  // Prüfe iOS-spezifische Einstellungen
+  checkIOSSettings() {
+    if (this.isIOSSafari) {
+      return {
+        isStandalone: this.isIOSStandalone,
+        hasNotificationSupport: this.isSupported,
+        permissionStatus: this.permission,
+        recommendation: !this.isIOSStandalone ? 
+          'Füge die App zum Home-Bildschirm hinzu für optimale Benachrichtigungen' : 
+          'Perfekt eingerichtet! 🎉'
+      };
+    }
+    return null;
   }
 
   // Helper: Budget Status Emoji
