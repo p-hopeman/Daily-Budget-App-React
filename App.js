@@ -406,11 +406,11 @@ export default function App() {
                           // Zeige auch einen Alert
                           Alert.alert('🚀 Test gestartet!', 'Direkte Benachrichtigung erstellt. Schaue oben rechts!');
                           
-                          // Schließe nach 8 Sekunden
+                          // Schließe erst nach 30 Sekunden (länger sichtbar)
                           setTimeout(() => {
                             notification.close();
                             console.log('🔔 Benachrichtigung automatisch geschlossen');
-                          }, 8000);
+                          }, 30000);
                           
                         } catch (directError) {
                           console.error('🔔 ❌ Direkter Test fehlgeschlagen:', directError);
@@ -466,6 +466,105 @@ export default function App() {
               >
                 <Text style={styles.debugButtonText}>
                   🚀 DIREKTER TEST
+                </Text>
+              </TouchableOpacity>
+            )}
+            {isWeb && (
+              <TouchableOpacity 
+                style={[styles.debugButton, { backgroundColor: '#FF6B6B', marginTop: 10 }]}
+                onPress={async () => {
+                  try {
+                    console.log('🔧 SYSTEM-CHECK STARTET...');
+                    
+                    // Prüfe verschiedene Notification-Eigenschaften
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                      console.log('🔧 Teste verschiedene Notification-Eigenschaften...');
+                      
+                      // Test 1: Minimale Benachrichtigung
+                      const minimalNotification = new Notification('🔧 MINIMAL TEST');
+                      console.log('🔧 Minimal-Benachrichtigung erstellt');
+                      
+                      // Test 2: Erweiterte Benachrichtigung ohne requireInteraction
+                      setTimeout(() => {
+                        const simpleNotification = new Notification('🔧 EINFACHER TEST', {
+                          body: 'Ohne requireInteraction',
+                          icon: '/favicon.ico'
+                        });
+                        console.log('🔧 Einfache Benachrichtigung erstellt');
+                      }, 2000);
+                      
+                      // Test 3: Mit Sound
+                      setTimeout(() => {
+                        const soundNotification = new Notification('🔧 SOUND TEST', {
+                          body: 'Mit Sound (silent: false)',
+                          icon: '/favicon.ico',
+                          silent: false
+                        });
+                        console.log('🔧 Sound-Benachrichtigung erstellt');
+                      }, 4000);
+                      
+                      // Test 4: Mit anderen Eigenschaften
+                      setTimeout(() => {
+                        const detailedNotification = new Notification('🔧 DETAILLIERT TEST', {
+                          body: 'Mit verschiedenen Eigenschaften',
+                          icon: '/favicon.ico',
+                          badge: '/favicon.ico',
+                          tag: 'system-test',
+                          dir: 'ltr',
+                          lang: 'de',
+                          vibrate: [200, 100, 200],
+                          requireInteraction: false
+                        });
+                        
+                        detailedNotification.onshow = () => {
+                          console.log('🔧 ✅ Detaillierte Benachrichtigung angezeigt');
+                        };
+                        
+                        detailedNotification.onerror = (error) => {
+                          console.error('🔧 ❌ Detaillierte Benachrichtigung Fehler:', error);
+                        };
+                        
+                        console.log('🔧 Detaillierte Benachrichtigung erstellt');
+                      }, 6000);
+                      
+                      // Info-Dialog
+                      Alert.alert(
+                        '🔧 System-Check',
+                        'Vier verschiedene Benachrichtigungen werden in 2-Sekunden-Abständen gesendet.\n\nPrüfe:\n1. Oben rechts am Bildschirm\n2. Chrome-Benachrichtigungen in Systemeinstellungen\n3. "Nicht stören" Modus\n\nWenn du NICHTS siehst, ist es ein System-Problem.',
+                        [
+                          {
+                            text: 'Chrome-Einstellungen öffnen',
+                            onPress: () => {
+                              Alert.alert(
+                                '⚙️ Chrome-Einstellungen',
+                                'Gehe zu:\n\n1. Chrome → Einstellungen\n2. Datenschutz und Sicherheit\n3. Website-Einstellungen\n4. Benachrichtigungen\n5. Prüfe ob deine Website erlaubt ist\n\nOder direkt: chrome://settings/content/notifications'
+                              );
+                            }
+                          },
+                          {
+                            text: 'Mac-Einstellungen öffnen',
+                            onPress: () => {
+                              Alert.alert(
+                                '🍎 Mac-Einstellungen',
+                                'Gehe zu:\n\n1. Systemeinstellungen\n2. Benachrichtigungen\n3. Google Chrome\n4. Benachrichtigungen aktivieren\n5. Stil: Banner oder Hinweise\n\nPrüfe auch "Nicht stören" Modus!'
+                              );
+                            }
+                          },
+                          { text: 'OK' }
+                        ]
+                      );
+                      
+                    } else {
+                      Alert.alert('❌ Keine Berechtigung', 'Benachrichtigungen nicht erlaubt oder unterstützt.');
+                    }
+                  } catch (error) {
+                    console.error('🔧 System-Check Fehler:', error);
+                    Alert.alert('❌ Fehler', error.message);
+                  }
+                }}
+              >
+                <Text style={styles.debugButtonText}>
+                  🔧 SYSTEM-CHECK
                 </Text>
               </TouchableOpacity>
             )}
