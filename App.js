@@ -72,18 +72,20 @@ export default function App() {
           }
         }
         
-        // Web Notifications initialisieren
+        // Web Notifications prüfen (aber nicht automatisch aktivieren)
         if (notificationService.isWebNotificationSupported()) {
-          const granted = await notificationService.requestPermission();
-          if (granted) {
-            console.log('✅ Web Notifications erfolgreich aktiviert!');
-            // Sende Willkommens-Notification
+          const permissionStatus = notificationService.getPermissionStatus();
+          console.log('Web Notifications Status:', permissionStatus);
+          
+          if (permissionStatus === 'granted') {
+            console.log('✅ Web Notifications bereits aktiviert!');
+            // Sende Willkommens-Notification nur wenn bereits berechtigt
             setTimeout(() => {
               const iosSettings = notificationService.checkIOSSettings();
-              let message = 'Web-Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates auch im Browser.';
+              let message = 'Web-Benachrichtigungen sind aktiv! Du erhältst Budget-Updates auch im Browser.';
               
               if (iosSettings && !iosSettings.isStandalone) {
-                message = 'Benachrichtigungen aktiv! 🎉\n\n💡 Tipp: Füge diese App zum Home-Bildschirm hinzu für die beste PWA-Erfahrung auf iOS.';
+                message = 'Benachrichtigungen aktiv! 🎉\n\n💡 Tipp: Tippe auf das 🔔-Symbol für PWA-Setup.';
               }
               
               notificationService.sendNotification(
@@ -91,7 +93,9 @@ export default function App() {
                 message,
                 { requireInteraction: true }
               );
-            }, 1000);
+            }, 2000);
+          } else {
+            console.log('Web Notifications noch nicht aktiviert. Tippe auf 🔔 zum Aktivieren.');
           }
         } else {
           console.log('Web Notifications werden nicht unterstützt');
@@ -333,49 +337,112 @@ export default function App() {
                 style={styles.settingsButton}
                 onPress={async () => {
                   if (isWeb) {
-                    // Test Web Notification und zeige iOS-spezifische Infos
-                    await notificationService.sendTestNotification();
-                    
                     const iosSettings = notificationService.checkIOSSettings();
                     const pwaStatus = pwaService ? pwaService.getStatus() : null;
+                    const permissionStatus = notificationService.getPermissionStatus();
                     
-                    if (iosSettings) {
+                    if (permissionStatus === 'default') {
+                      // Berechtigung noch nicht angefordert
                       Alert.alert(
-                        '🔔 iOS PWA Status',
-                        `Benachrichtigungen: ${iosSettings.permissionStatus}\nPWA-Modus: ${pwaStatus?.isStandalone ? 'Ja' : 'Nein'}\nService Worker: ${pwaStatus?.hasServiceWorker ? 'Ja' : 'Nein'}\n\n${iosSettings.recommendation}`,
+                        '🔔 Benachrichtigungen aktivieren',
+                        'Möchtest du Benachrichtigungen für Budget-Updates aktivieren?',
                         [
                           {
-                            text: 'Setup-Anleitung',
-                            onPress: () => {
-                              Alert.alert(
-                                '📱 PWA Setup für iOS',
-                                '1. Prüfe iOS Version (16.4+ nötig)\n2. Tippe "Teilen" → "Zum Home-Bildschirm"\n3. Öffne App vom Home-Bildschirm\n4. Erlaube Benachrichtigungen\n5. Prüfe Einstellungen → Benachrichtigungen\n\n💡 Nur im PWA-Modus funktionieren persistente Benachrichtigungen!'
-                              );
+                            text: 'Ja, aktivieren',
+                            onPress: async () => {
+                              const granted = await notificationService.requestPermission();
+                              if (granted) {
+                                await notificationService.sendTestNotification();
+                                Alert.alert('✅ Erfolgreich', 'Benachrichtigungen sind jetzt aktiv!');
+                              } else {
+                                Alert.alert(
+                                  '❌ Berechtigung verweigert',
+                                  'Benachrichtigungen wurden abgelehnt. Du kannst sie in den Safari-Einstellungen wieder aktivieren.'
+                                );
+                              }
                             }
                           },
-                          pwaStatus?.canInstall ? {
-                            text: 'PWA Installieren',
-                            onPress: () => {
-                              pwaService?.showInstallPrompt();
-                            }
-                          } : null,
-                          { text: 'OK' }
-                        ].filter(Boolean)
+                          { text: 'Nein', style: 'cancel' }
+                        ]
                       );
+                    } else if (permissionStatus === 'granted') {
+                      // Berechtigung bereits erteilt - sende Test-Notification
+                      await notificationService.sendTestNotification();
+                      
+                      if (iosSettings) {
+                        Alert.alert(
+                          '🔔 iOS PWA Status',
+                          `Benachrichtigungen: ${iosSettings.permissionStatus}\nPWA-Modus: ${pwaStatus?.isStandalone ? 'Ja' : 'Nein'}\nService Worker: ${pwaStatus?.hasServiceWorker ? 'Ja' : 'Nein'}\n\n${iosSettings.recommendation}`,
+                          [
+                            {
+                              text: 'Setup-Anleitung',
+                              onPress: () => {
+                                Alert.alert(
+                                  '📱 PWA Setup für iOS',
+                                  '1. Prüfe iOS Version (16.4+ nötig)\n2. Tippe "Teilen" → "Zum Home-Bildschirm"\n3. Öffne App vom Home-Bildschirm\n4. Erlaube Benachrichtigungen\n5. Prüfe Einstellungen → Benachrichtigungen\n\n💡 Nur im PWA-Modus funktionieren persistente Benachrichtigungen!'
+                                );
+                              }
+                            },
+                            pwaStatus?.canInstall ? {
+                              text: 'PWA Installieren',
+                              onPress: () => {
+                                pwaService?.showInstallPrompt();
+                              }
+                            } : null,
+                            { text: 'OK' }
+                          ].filter(Boolean)
+                        );
+                      } else {
+                        Alert.alert('✅ Test', 'Web-Benachrichtigung gesendet!');
+                      }
                     } else {
-                      Alert.alert('✅ Test', 'Web-Benachrichtigung gesendet!');
+                      // Berechtigung wurde verweigert
+                      Alert.alert(
+                        '❌ Benachrichtigungen deaktiviert',
+                        'Benachrichtigungen wurden abgelehnt oder blockiert.\n\nSo aktivierst du sie wieder:\n\n1. Safari → Einstellungen → Websites → Benachrichtigungen\n2. Suche deine App\n3. Stelle auf "Erlauben"\n\nOder:\n1. iOS Einstellungen → Benachrichtigungen\n2. Suche deine App\n3. Aktiviere "Benachrichtigungen erlauben"',
+                        [
+                          {
+                            text: 'Erneut versuchen',
+                            onPress: async () => {
+                              const granted = await notificationService.requestPermission();
+                              if (granted) {
+                                await notificationService.sendTestNotification();
+                                Alert.alert('✅ Erfolgreich', 'Benachrichtigungen sind jetzt aktiv!');
+                              } else {
+                                Alert.alert('❌ Immer noch blockiert', 'Bitte aktiviere Benachrichtigungen manuell in den Einstellungen.');
+                              }
+                            }
+                          },
+                          { text: 'OK' }
+                        ]
+                      );
                     }
                   } else {
                     Alert.alert('Info', 'Einstellungen kommen bald!');
                   }
                 }}
               >
-                <Ionicons name={isWeb ? "notifications-outline" : "settings-outline"} size={24} color="#666" />
+                <Ionicons 
+                  name={isWeb ? 
+                    (notificationService.getPermissionStatus() === 'granted' ? "notifications" : "notifications-outline") : 
+                    "settings-outline"
+                  } 
+                  size={24} 
+                  color={isWeb ? 
+                    (notificationService.getPermissionStatus() === 'granted' ? "#00C851" : "#FF6B6B") : 
+                    "#666"
+                  } 
+                />
               </TouchableOpacity>
             </View>
             <Text style={styles.statusText}>VERFÜGBAR</Text>
             <Text style={styles.mainAmount}>{formatCurrency(dailyBudget)}</Text>
             <Text style={styles.subtitle}>Tagesbudget</Text>
+            {isWeb && notificationService.getPermissionStatus() !== 'granted' && (
+              <Text style={styles.notificationHint}>
+                💡 Tippe auf 🔔 für Benachrichtigungen
+              </Text>
+            )}
           </View>
 
           {/* Quick Stats */}
@@ -598,6 +665,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '500',
     color: '#4a4a4a',
+  },
+  notificationHint: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FF6B6B',
+    marginTop: 8,
+    textAlign: 'center',
   },
   statsRow: {
     flexDirection: 'row',
