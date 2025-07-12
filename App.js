@@ -12,16 +12,19 @@ import {
   Alert,
   Dimensions,
   AppState,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import NotificationService from './NotificationService';
+import WebNotificationService from './WebNotificationService';
 
 const { width, height } = Dimensions.get('window');
 
-// NotificationService-Instanz
-const notificationService = new NotificationService();
+// Plattform-spezifische NotificationService-Instanz
+const isWeb = Platform.OS === 'web';
+const notificationService = isWeb ? new WebNotificationService() : new NotificationService();
 
 export default function App() {
   const [dailyBudget, setDailyBudget] = useState(0);
@@ -49,11 +52,31 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialisiere Notification-System
+  // Initialisiere Notification-System (plattform-spezifisch)
   const initializeNotifications = async () => {
     try {
-      // Registriere für Push Notifications und frage nach Permissions
-      await notificationService.registerForPushNotificationsAsync();
+      if (isWeb) {
+        // Web Notifications initialisieren
+        if (notificationService.isWebNotificationSupported()) {
+          const granted = await notificationService.requestPermission();
+          if (granted) {
+            console.log('✅ Web Notifications erfolgreich aktiviert!');
+            // Sende Willkommens-Notification
+            setTimeout(() => {
+              notificationService.sendNotification(
+                '🎉 Daily Budget App',
+                'Web-Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates auch im Browser.',
+                { requireInteraction: true }
+              );
+            }, 1000);
+          }
+        } else {
+          console.log('Web Notifications werden nicht unterstützt');
+        }
+      } else {
+        // Native Notifications (Expo) initialisieren
+        await notificationService.registerForPushNotificationsAsync();
+      }
       
       console.log('Notifications erfolgreich initialisiert!');
     } catch (error) {
@@ -65,7 +88,13 @@ export default function App() {
   const updateDailyReminders = async () => {
     try {
       if (dailyBudget !== null && dailyBudget !== undefined) {
-        await notificationService.scheduleDailyBudgetReminders(dailyBudget);
+        if (isWeb) {
+          // Web-Version: Setup für lokale Erinnerungen
+          notificationService.setupDailyReminders(dailyBudget);
+        } else {
+          // Native Version: Schedule push notifications
+          await notificationService.scheduleDailyBudgetReminders(dailyBudget);
+        }
         console.log(`Tägliche Erinnerungen aktualisiert mit Budget: ${dailyBudget}`);
       }
     } catch (error) {
@@ -202,7 +231,11 @@ export default function App() {
       
       // Prüfe auf niedrig-Budget-Warnung
       if (newDailyBudget <= 5) {
-        await notificationService.scheduleLowBudgetWarning(newDailyBudget);
+        if (isWeb) {
+          await notificationService.sendLowBudgetWarning(newDailyBudget);
+        } else {
+          await notificationService.scheduleLowBudgetWarning(newDailyBudget);
+        }
       }
       
       // Sende Motivations-Notification bei gutem Budget
@@ -275,9 +308,17 @@ export default function App() {
               <View style={styles.headerSpacer} />
               <TouchableOpacity
                 style={styles.settingsButton}
-                onPress={() => Alert.alert('Info', 'Einstellungen kommen bald!')}
+                onPress={() => {
+                  if (isWeb) {
+                    // Test Web Notification
+                    notificationService.sendTestNotification();
+                    Alert.alert('✅ Test', 'Web-Benachrichtigung gesendet!');
+                  } else {
+                    Alert.alert('Info', 'Einstellungen kommen bald!');
+                  }
+                }}
               >
-                <Ionicons name="settings-outline" size={24} color="#666" />
+                <Ionicons name={isWeb ? "notifications-outline" : "settings-outline"} size={24} color="#666" />
               </TouchableOpacity>
             </View>
             <Text style={styles.statusText}>VERFÜGBAR</Text>
