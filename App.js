@@ -358,6 +358,8 @@ export default function App() {
                 style={styles.debugButton}
                 onPress={async () => {
                   try {
+                    console.log('🔔 DIREKTER TEST STARTET...');
+                    
                     // Erweiterte Browser-Erkennung
                     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
                     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -373,111 +375,97 @@ export default function App() {
                       serviceWorkerSupported: 'serviceWorker' in navigator
                     });
                     
-                    Alert.alert(
-                      '🔔 Detaillierter Test', 
-                      `Browser: ${isSafari ? 'Safari' : 'Anderer'}\nPlatform: ${isIOS ? 'iOS' : 'Desktop'}\nPWA-Modus: ${isStandalone ? 'Ja' : 'Nein'}\nStatus: ${Notification.permission}\n\n${isIOS && !isStandalone ? 'Hinweis: iOS Safari benötigt PWA-Modus für Benachrichtigungen. Auf iPhone: "Zum Home-Bildschirm hinzufügen"' : ''}`,
-                      [
-                        {
-                          text: 'Sofort testen',
-                          onPress: async () => {
-                            try {
-                              console.log('🔔 Starte sofortigen Test...');
-                              
-                              if ('Notification' in window) {
-                                // Prüfe aktuelle Berechtigung
-                                let permission = Notification.permission;
-                                console.log('🔔 Aktuelle Berechtigung:', permission);
-                                
-                                if (permission === 'default') {
-                                  console.log('🔔 Frage Berechtigung an...');
-                                  permission = await Notification.requestPermission();
+                    // SOFORTIGER TEST - Erstelle Benachrichtigung direkt
+                    if ('Notification' in window) {
+                      if (Notification.permission === 'granted') {
+                        console.log('🔔 Berechtigung bereits erteilt - erstelle sofort Benachrichtigung...');
+                        
+                        try {
+                          const notification = new Notification('🚀 DIREKTER TEST', {
+                            body: 'Das ist eine direkte Benachrichtigung ohne Dialog!',
+                            icon: '/favicon.ico',
+                            tag: 'direct-test',
+                            requireInteraction: true
+                          });
+                          
+                          console.log('🔔 Benachrichtigung erstellt:', notification);
+                          
+                          notification.onshow = () => {
+                            console.log('🔔 ✅ Benachrichtigung wird angezeigt!');
+                          };
+                          
+                          notification.onerror = (error) => {
+                            console.error('🔔 ❌ Benachrichtigung Fehler:', error);
+                          };
+                          
+                          notification.onclick = () => {
+                            console.log('🔔 👆 Benachrichtigung geklickt');
+                            notification.close();
+                          };
+                          
+                          // Zeige auch einen Alert
+                          Alert.alert('🚀 Test gestartet!', 'Direkte Benachrichtigung erstellt. Schaue oben rechts!');
+                          
+                          // Schließe nach 8 Sekunden
+                          setTimeout(() => {
+                            notification.close();
+                            console.log('🔔 Benachrichtigung automatisch geschlossen');
+                          }, 8000);
+                          
+                        } catch (directError) {
+                          console.error('🔔 ❌ Direkter Test fehlgeschlagen:', directError);
+                          Alert.alert('❌ Direkter Test fehlgeschlagen', directError.message);
+                        }
+                      } else {
+                        // Frage Berechtigung an
+                        console.log('🔔 Berechtigung anfordern...');
+                        Alert.alert(
+                          '🔔 Berechtigung erforderlich', 
+                          `Aktuelle Berechtigung: ${Notification.permission}\n\nBenachrichtigungen müssen erst erlaubt werden.`,
+                          [
+                            {
+                              text: 'Berechtigung erteilen',
+                              onPress: async () => {
+                                try {
+                                  const permission = await Notification.requestPermission();
                                   console.log('🔔 Neue Berechtigung:', permission);
+                                  
+                                  if (permission === 'granted') {
+                                    const notification = new Notification('✅ Berechtigung erteilt!', {
+                                      body: 'Benachrichtigungen funktionieren jetzt!',
+                                      icon: '/favicon.ico'
+                                    });
+                                    
+                                    notification.onshow = () => {
+                                      console.log('🔔 Berechtigung-Benachrichtigung angezeigt');
+                                    };
+                                    
+                                    Alert.alert('✅ Erfolgreich!', 'Berechtigung erteilt und Test-Benachrichtigung gesendet!');
+                                  } else {
+                                    Alert.alert('❌ Verweigert', `Berechtigung wurde verweigert: ${permission}`);
+                                  }
+                                } catch (error) {
+                                  console.error('🔔 Berechtigung-Fehler:', error);
+                                  Alert.alert('❌ Fehler', error.message);
                                 }
-                                
-                                if (permission === 'granted') {
-                                  console.log('🔔 Erstelle Test-Benachrichtigung...');
-                                  
-                                  // Erstelle eine Test-Benachrichtigung mit allen Event-Handlers
-                                  const notification = new Notification('🎉 Test erfolgreich!', {
-                                    body: `Browser-Benachrichtigungen funktionieren!\n\nBrowser: ${isSafari ? 'Safari' : 'Anderer'}\nPlatform: ${isIOS ? 'iOS' : 'Desktop'}\nPWA: ${isStandalone ? 'Ja' : 'Nein'}`,
-                                    icon: '/favicon.ico',
-                                    badge: '/favicon.ico',
-                                    tag: 'detailed-test',
-                                    requireInteraction: true,
-                                    silent: false,
-                                    timestamp: Date.now()
-                                  });
-                                  
-                                  // Event-Handler für Debugging
-                                  notification.onshow = () => {
-                                    console.log('🔔 Benachrichtigung wird angezeigt');
-                                    setTimeout(() => {
-                                      Alert.alert('✅ Erfolgreich!', 'Benachrichtigung wird angezeigt!');
-                                    }, 1000);
-                                  };
-                                  
-                                  notification.onerror = (error) => {
-                                    console.error('🔔 Benachrichtigung Fehler:', error);
-                                    Alert.alert('❌ Fehler', 'Benachrichtigung konnte nicht angezeigt werden.');
-                                  };
-                                  
-                                  notification.onclick = () => {
-                                    console.log('🔔 Benachrichtigung geklickt');
-                                    Alert.alert('👆 Geklickt!', 'Benachrichtigung wurde geklickt!');
-                                    notification.close();
-                                  };
-                                  
-                                  notification.onclose = () => {
-                                    console.log('🔔 Benachrichtigung geschlossen');
-                                  };
-                                  
-                                  // Schließe automatisch nach 10 Sekunden
-                                  setTimeout(() => {
-                                    notification.close();
-                                  }, 10000);
-                                  
-                                } else if (permission === 'denied') {
-                                  Alert.alert(
-                                    '❌ Verweigert', 
-                                    'Benachrichtigungen wurden dauerhaft verweigert. Bitte Browser-Einstellungen prüfen.',
-                                    [
-                                      { text: 'OK' },
-                                      { 
-                                        text: 'Hilfe',
-                                        onPress: () => {
-                                          Alert.alert(
-                                            '💡 Hilfe',
-                                            isIOS ? 
-                                              'iPhone Safari:\n1. App zum Home-Bildschirm hinzufügen\n2. Als PWA öffnen\n3. Benachrichtigungen aktivieren' :
-                                              'Desktop:\n1. Adressleiste: Schloss-Symbol klicken\n2. Benachrichtigungen auf "Zulassen" setzen\n3. Seite neu laden'
-                                          );
-                                        }
-                                      }
-                                    ]
-                                  );
-                                } else {
-                                  Alert.alert('❓ Unbekannt', `Unbekannter Berechtigungsstatus: ${permission}`);
-                                }
-                              } else {
-                                Alert.alert('❌ Nicht unterstützt', 'Browser unterstützt keine Benachrichtigungen.');
                               }
-                            } catch (error) {
-                              console.error('🔔 Test Fehler:', error);
-                              Alert.alert('❌ Fehler', `Test fehlgeschlagen: ${error.message}`);
-                            }
-                          }
-                        },
-                        { text: 'Abbrechen', style: 'cancel' }
-                      ]
-                    );
+                            },
+                            { text: 'Abbrechen', style: 'cancel' }
+                          ]
+                        );
+                      }
+                    } else {
+                      console.log('🔔 ❌ Benachrichtigungen nicht unterstützt');
+                      Alert.alert('❌ Nicht unterstützt', 'Browser unterstützt keine Benachrichtigungen.');
+                    }
                   } catch (error) {
-                    console.error('🔔 Button Fehler:', error);
+                    console.error('🔔 ❌ Button Fehler:', error);
                     Alert.alert('❌ Fehler', error.message);
                   }
                 }}
               >
                 <Text style={styles.debugButtonText}>
-                  🔔 BENACHRICHTIGUNGEN TESTEN
+                  🚀 DIREKTER TEST
                 </Text>
               </TouchableOpacity>
             )}
