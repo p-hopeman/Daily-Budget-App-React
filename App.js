@@ -17,17 +17,17 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+// Re-enabled imports - all services are now in dummy mode for debugging
 import NotificationService from './NotificationService';
 import WebNotificationService from './WebNotificationService';
 import PWAService from './PWAService';
 
 const { width, height } = Dimensions.get('window');
 
-// Plattform-spezifische NotificationService-Instanz
+// Plattform-spezifische NotificationService-Instanz (alle Services in Dummy-Mode)
 const isWeb = Platform.OS === 'web';
-// Temporarily disable services for debugging
-// const notificationService = isWeb ? new WebNotificationService() : new NotificationService();
-// const pwaService = isWeb ? new PWAService() : null;
+const notificationService = isWeb ? new WebNotificationService() : new NotificationService();
+const pwaService = isWeb ? new PWAService() : null;
 
 export default function App() {
   const [dailyBudget, setDailyBudget] = useState(0);
@@ -40,11 +40,10 @@ export default function App() {
   const [isDeposit, setIsDeposit] = useState(true);
   const [showingSettings, setShowingSettings] = useState(false);
 
-  // Lade Daten beim App-Start und initialisiere Notifications
+  // Lade Daten beim App-Start (Notifications komplett entfernt)
   useEffect(() => {
     loadData();
     calculateRemainingDays();
-    // initializeNotifications(); // Temporarily disabled for debugging
     
     // Timer für tägliche Aktualisierung
     const interval = setInterval(() => {
@@ -55,94 +54,14 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialisiere Notification-System (plattform-spezifisch)
-  const initializeNotifications = async () => {
-    console.log('Notification initialization disabled for debugging');
-    // try {
-    //   if (isWeb) {
-    //     // PWA initialisieren (Service Worker + Manifest)
-    //     if (pwaService) {
-    //       const pwaInitialized = await pwaService.initialize();
-    //       console.log('PWA Status:', pwaService.getStatus());
-    //       
-    //       if (pwaInitialized && pwaService.registration) {
-    //         console.log('✅ PWA erfolgreich initialisiert!');
-    //         // Verknüpfe Service Worker mit Notification Service
-    //         if (notificationService.setServiceWorkerRegistration) {
-    //           notificationService.setServiceWorkerRegistration(pwaService.registration);
-    //         }
-    //       }
-    //     }
-    //     
-    //     // Web Notifications prüfen (aber nicht automatisch aktivieren)
-    //     if (notificationService.isWebNotificationSupported()) {
-    //       const permissionStatus = notificationService.getPermissionStatus();
-    //       console.log('Web Notifications Status:', permissionStatus);
-    //       
-    //       if (permissionStatus === 'granted') {
-    //         console.log('✅ Web Notifications bereits aktiviert!');
-    //         // Sende Willkommens-Notification nur wenn bereits berechtigt
-    //         setTimeout(() => {
-    //           const iosSettings = notificationService.checkIOSSettings();
-    //           let message = 'Web-Benachrichtigungen sind aktiv! Du erhältst Budget-Updates auch im Browser.';
-    //           
-    //           if (iosSettings && !iosSettings.isStandalone) {
-    //             message = 'Benachrichtigungen aktiv! 🎉\n\n💡 Tipp: Tippe auf das 🔔-Symbol für PWA-Setup.';
-    //           }
-    //           
-    //           notificationService.sendNotification(
-    //             '🎉 Daily Budget App',
-    //             message,
-    //             { requireInteraction: true }
-    //           );
-    //         }, 2000);
-    //       } else {
-    //         console.log('Web Notifications noch nicht aktiviert. Tippe auf 🔔 zum Aktivieren.');
-    //       }
-    //     } else {
-    //       console.log('Web Notifications werden nicht unterstützt');
-    //     }
-    //   } else {
-    //     // Native Notifications (Expo) initialisieren
-    //     await notificationService.registerForPushNotificationsAsync();
-    //   }
-    //   
-    //   console.log('Notifications erfolgreich initialisiert!');
-    // } catch (error) {
-    //   console.error('Fehler beim Initialisieren der Notifications:', error);
-    // }
-  };
-
-  // Aktualisiere tägliche Erinnerungen mit aktuellem Budget
-  const updateDailyReminders = async () => {
-    console.log('Daily reminders disabled for debugging');
-    // try {
-    //   if (dailyBudget !== null && dailyBudget !== undefined) {
-    //     if (isWeb) {
-    //       // Web-Version: Setup für lokale Erinnerungen
-    //       notificationService.setupDailyReminders(dailyBudget);
-    //     } else {
-    //       // Native Version: Schedule push notifications
-    //       await notificationService.scheduleDailyBudgetReminders(dailyBudget);
-    //     }
-    //     console.log(`Tägliche Erinnerungen aktualisiert mit Budget: ${dailyBudget}`);
-    //   }
-    // } catch (error) {
-    //   console.error('Fehler beim Aktualisieren der täglichen Erinnerungen:', error);
-    // }
-  };
+  // All notification functions removed for debugging
 
   // Berechne Tagesbudget wenn sich Budget oder Tage ändern
   useEffect(() => {
     calculateDailyBudget();
   }, [remainingBudget, remainingDays]);
 
-  // Aktualisiere tägliche Erinnerungen wenn sich das Tagesbudget ändert
-  useEffect(() => {
-    if (dailyBudget !== null && dailyBudget !== undefined && !isNaN(dailyBudget)) {
-      // updateDailyReminders(); // Temporarily disabled for debugging
-    }
-  }, [dailyBudget]);
+  // Daily reminders temporarily disabled for debugging
 
   // App Focus Handler - behebt Bug beim Wechseln zwischen Apps
   useEffect(() => {
@@ -339,8 +258,39 @@ export default function App() {
               <View style={styles.headerSpacer} />
               <TouchableOpacity
                 style={styles.settingsButton}
-                onPress={() => {
-                  Alert.alert('🔔 Button Test', 'Button funktioniert!');
+                onPress={async () => {
+                  try {
+                    console.log('🔔 Button geklickt!');
+                    
+                    // Teste direkt Browser Notification API
+                    if ('Notification' in window) {
+                      Alert.alert(
+                        '🔔 Notification Test', 
+                        `Browser unterstützt Notifications!\n\nAktueller Status: ${Notification.permission}`,
+                        [
+                          {
+                            text: 'Berechtigung anfordern',
+                            onPress: async () => {
+                              const permission = await Notification.requestPermission();
+                              if (permission === 'granted') {
+                                new Notification('✅ Erfolgreich!', {
+                                  body: 'Benachrichtigungen sind jetzt aktiv!',
+                                  icon: '/favicon.ico'
+                                });
+                              }
+                              Alert.alert('Status', `Neue Berechtigung: ${permission}`);
+                            }
+                          },
+                          { text: 'OK' }
+                        ]
+                      );
+                    } else {
+                      Alert.alert('❌ Nicht unterstützt', 'Browser unterstützt keine Benachrichtigungen.');
+                    }
+                  } catch (error) {
+                    console.error('Button Fehler:', error);
+                    Alert.alert('❌ Fehler', error.message);
+                  }
                 }}
               >
                 <Ionicons 
@@ -356,7 +306,34 @@ export default function App() {
             {isWeb && (
               <TouchableOpacity 
                 style={styles.debugButton}
-                onPress={() => Alert.alert('Debug', 'Einfacher Button funktioniert!')}
+                onPress={async () => {
+                  Alert.alert('🔔 Notification Test', 'Button funktioniert!', [
+                    {
+                      text: 'Test Browser Notification',
+                      onPress: async () => {
+                        try {
+                          if ('Notification' in window) {
+                            const permission = await Notification.requestPermission();
+                            if (permission === 'granted') {
+                              new Notification('✅ Test erfolgreich!', {
+                                body: 'Browser-Benachrichtigungen funktionieren!',
+                                icon: '/favicon.ico'
+                              });
+                              Alert.alert('✅ Erfolg', 'Benachrichtigung gesendet!');
+                            } else {
+                              Alert.alert('❌ Verweigert', 'Benachrichtigung wurde abgelehnt.');
+                            }
+                          } else {
+                            Alert.alert('❌ Nicht unterstützt', 'Browser unterstützt keine Benachrichtigungen.');
+                          }
+                        } catch (error) {
+                          Alert.alert('❌ Fehler', error.message);
+                        }
+                      }
+                    },
+                    { text: 'Abbrechen', style: 'cancel' }
+                  ]);
+                }}
               >
                 <Text style={styles.debugButtonText}>
                   🔔 BENACHRICHTIGUNGEN TESTEN

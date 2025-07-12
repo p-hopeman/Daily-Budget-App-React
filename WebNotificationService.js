@@ -1,294 +1,55 @@
-import { Platform } from 'react-native';
+// COMPLETELY DISABLED FOR DEBUGGING - ALL FUNCTIONS RETURN DUMMY VALUES
+// This prevents complex notification logic from interfering with web app
 
-class WebNotificationService {
+export default class WebNotificationService {
   constructor() {
+    console.log('WebNotificationService: DUMMY MODE - alle Funktionen deaktiviert');
     this.isSupported = typeof window !== 'undefined' && 'Notification' in window;
     this.permission = this.isSupported ? Notification.permission : 'default';
-    this.isIOSStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-    this.isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    this.isIOSStandalone = false;
+    this.isIOSSafari = false;
     this.serviceWorkerRegistration = null;
   }
 
-  // Prüfe ob Web Notifications unterstützt werden
   isWebNotificationSupported() {
-    // iOS Web Notifications funktionieren nur in PWA-Modus oder iOS 16.4+
-    if (this.isIOSSafari && !this.isIOSStandalone) {
-      const userAgent = navigator.userAgent;
-      const match = userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
-      if (match) {
-        const version = parseInt(match[1], 10);
-        const minor = parseInt(match[2], 10);
-        // iOS 16.4 = Version 16, Minor 4
-        if (version < 16 || (version === 16 && minor < 4)) {
-          console.log('iOS Version zu alt für Web Notifications. Benötigt iOS 16.4+');
-          return false;
-        }
-      }
-    }
     return this.isSupported;
   }
 
-  // Fordere Notification-Berechtigung an
   async requestPermission() {
-    if (!this.isSupported) {
-      console.log('Web Notifications werden nicht unterstützt');
-      return false;
-    }
-
-    // Spezielle Behandlung für iOS
-    if (this.isIOSSafari && !this.isIOSStandalone) {
-      console.log('💡 Hinweis: Für beste Erfahrung auf iOS die Website zum Home-Bildschirm hinzufügen');
-    }
-
-    if (this.permission === 'granted') {
-      return true;
-    }
-
-    try {
-      // Für iOS: Berechtigung muss durch User-Interaktion ausgelöst werden
-      const permission = await Notification.requestPermission();
-      this.permission = permission;
-      
-      if (permission === 'granted') {
-        console.log('✅ Web Notifications berechtigt!');
-        return true;
-      } else if (permission === 'denied') {
-        console.log('❌ Web Notifications dauerhaft abgelehnt');
-        return false;
-      } else {
-        console.log('⏸️ Web Notifications vorerst abgelehnt');
-        return false;
-      }
-    } catch (error) {
-      console.error('Fehler beim Anfordern der Notification-Berechtigung:', error);
-      return false;
-    }
+    console.log('DUMMY: requestPermission');
+    return false;
   }
 
-  // Sende Browser-Notification (mit PWA Service Worker Support)
   async sendNotification(title, body, options = {}) {
-    if (!this.isSupported || this.permission !== 'granted') {
-      console.log('Web Notifications nicht verfügbar oder nicht berechtigt');
-      return null;
-    }
-
-    // Wenn im PWA-Modus und Service Worker verfügbar, verwende Service Worker
-    if (this.isIOSStandalone && this.serviceWorkerRegistration) {
-      console.log('Verwende Service Worker für PWA-Notification');
-      return this.sendServiceWorkerNotification(title, body, options);
-    }
-
-    try {
-      const defaultOptions = {
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        tag: 'daily-budget-app',
-        requireInteraction: false,
-        silent: false,
-        timestamp: Date.now(),
-        ...options
-      };
-
-      const notification = new Notification(title, {
-        body,
-        ...defaultOptions
-      });
-
-      // Auto-close nach 8 Sekunden für iOS (länger als Standard)
-      if (!defaultOptions.requireInteraction) {
-        setTimeout(() => {
-          notification.close();
-        }, this.isIOSSafari ? 8000 : 5000);
-      }
-
-      // Event Listeners
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-        if (options.onClick) {
-          options.onClick();
-        }
-      };
-
-      notification.onerror = (error) => {
-        console.error('Notification Error:', error);
-      };
-
-      notification.onshow = () => {
-        console.log('Notification wurde angezeigt');
-      };
-
-      return notification;
-    } catch (error) {
-      console.error('Fehler beim Senden der Web Notification:', error);
-      return null;
-    }
-  }
-
-  // Budget-Update Notification
-  async sendBudgetUpdateNotification(dailyBudget, remainingBudget, remainingDays, changeAmount = null, isExpense = false) {
-    const budgetEmoji = this.getBudgetStatusEmoji(dailyBudget);
-    const title = `${budgetEmoji} Tagesbudget: ${this.formatCurrency(dailyBudget)}`;
-    
-    let body;
-    if (changeAmount) {
-      body = isExpense ? 
-        `➖ Ausgabe: ${this.formatCurrency(Math.abs(changeAmount))}` : 
-        `➕ Einzahlung: ${this.formatCurrency(Math.abs(changeAmount))}`;
-    } else {
-      body = 'Budget aktualisiert';
-    }
-
-    return await this.sendNotification(title, body, {
-      tag: 'budget-update',
-      data: { 
-        dailyBudget, 
-        remainingBudget, 
-        remainingDays,
-        changeAmount,
-        isExpense,
-        type: 'budget_update'
-      }
-    });
-  }
-
-  // Tägliche Erinnerung (Browser-Version)
-  async sendDailyReminderNotification(dailyBudget, timeOfDay = 'morning') {
-    const budgetEmoji = this.getBudgetStatusEmoji(dailyBudget);
-    const title = `${budgetEmoji} Tagesbudget: ${this.formatCurrency(dailyBudget)}`;
-    
-    const messages = {
-      morning: '🌅 Guten Morgen! Wie ist dein Budget heute?',
-      evening: '🌙 Guten Abend! Wie lief dein Budget-Tag?'
-    };
-
-    return await this.sendNotification(title, messages[timeOfDay] || messages.morning, {
-      tag: 'daily-reminder',
-      requireInteraction: true,
-      data: { 
-        type: 'daily_reminder',
-        timeOfDay,
-        dailyBudget
-      }
-    });
-  }
-
-  // Niedrig-Budget Warnung
-  async sendLowBudgetWarning(dailyBudget, threshold = 5) {
-    if (dailyBudget <= threshold) {
-      const budgetEmoji = this.getBudgetStatusEmoji(dailyBudget);
-      const title = `${budgetEmoji} Tagesbudget: ${this.formatCurrency(dailyBudget)}`;
-      
-      return await this.sendNotification(title, '⚠️ Niedriges Budget! Aufpassen mit den Ausgaben.', {
-        tag: 'low-budget-warning',
-        requireInteraction: true,
-        data: { 
-          type: 'low_budget_warning',
-          dailyBudget,
-          threshold
-        }
-      });
-    }
-  }
-
-  // Motivations-Notification
-  async sendMotivationNotification(dailyBudget) {
-    if (dailyBudget > 20) {
-      const motivationMessages = [
-        '🎉 Super! Du liegst gut im Budget!',
-        '💪 Weiter so! Deine Finanzen sind auf Kurs!',
-        '🌟 Excellent budgeting! Du rockst das!',
-        '🚀 Du bist ein Budget-Pro!',
-      ];
-
-      const randomMessage = motivationMessages[Math.floor(Math.random() * motivationMessages.length)];
-      const budgetEmoji = this.getBudgetStatusEmoji(dailyBudget);
-      const title = `${budgetEmoji} Tagesbudget: ${this.formatCurrency(dailyBudget)}`;
-
-      return await this.sendNotification(title, randomMessage, {
-        tag: 'motivation',
-        data: { 
-          type: 'motivation',
-          dailyBudget
-        }
-      });
-    }
-  }
-
-  // Teste Web Notifications mit iOS-spezifischer Info
-  async sendTestNotification() {
-    let message = 'Web Notifications funktionieren! 🎉';
-    
-    if (this.isIOSSafari && !this.isIOSStandalone) {
-      message = 'Web Notifications aktiv! 🎉\n💡 Tipp: App zum Home-Bildschirm hinzufügen für beste Erfahrung';
-    }
-
-    return await this.sendNotification(
-      '📱 Test-Benachrichtigung',
-      message,
-      {
-        tag: 'test',
-        requireInteraction: true,
-        data: { type: 'test' }
-      }
-    );
-  }
-
-  // Setze Service Worker Registration für PWA-Benachrichtigungen
-  setServiceWorkerRegistration(registration) {
-    this.serviceWorkerRegistration = registration;
-    console.log('Service Worker Registration für Notifications gesetzt');
-  }
-
-  // Sende Notification über Service Worker (für PWA)
-  async sendServiceWorkerNotification(title, body, options = {}) {
-    if (!this.serviceWorkerRegistration) {
-      console.log('Kein Service Worker für Notifications verfügbar');
-      return this.sendNotification(title, body, options);
-    }
-
-    try {
-      const defaultOptions = {
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        vibrate: [100, 50, 100],
-        requireInteraction: true,
-        tag: 'daily-budget-app',
-        timestamp: Date.now(),
-        ...options
-      };
-
-      await this.serviceWorkerRegistration.showNotification(title, {
-        body,
-        ...defaultOptions
-      });
-
-      console.log('Service Worker Notification gesendet');
-      return { close: () => {} }; // Mock notification object
-    } catch (error) {
-      console.error('Service Worker Notification Fehler:', error);
-      // Fallback auf normale Notification
-      return this.sendNotification(title, body, options);
-    }
-  }
-
-  // Prüfe iOS-spezifische Einstellungen
-  checkIOSSettings() {
-    if (this.isIOSSafari) {
-      return {
-        isStandalone: this.isIOSStandalone,
-        hasNotificationSupport: this.isSupported,
-        permissionStatus: this.permission,
-        hasServiceWorker: this.serviceWorkerRegistration !== null,
-        recommendation: !this.isIOSStandalone ? 
-          'Füge die App zum Home-Bildschirm hinzu für optimale PWA-Benachrichtigungen' : 
-          'Perfekt eingerichtet! 🎉'
-      };
-    }
+    console.log('DUMMY: sendNotification', title, body);
     return null;
   }
 
-  // Helper: Budget Status Emoji
+  async sendBudgetUpdateNotification() {
+    console.log('DUMMY: sendBudgetUpdateNotification');
+    return null;
+  }
+
+  async sendDailyReminderNotification() {
+    console.log('DUMMY: sendDailyReminderNotification');
+    return null;
+  }
+
+  async sendLowBudgetWarning() {
+    console.log('DUMMY: sendLowBudgetWarning');
+    return null;
+  }
+
+  async sendMotivationNotification() {
+    console.log('DUMMY: sendMotivationNotification');
+    return null;
+  }
+
+  async sendTestNotification() {
+    console.log('DUMMY: sendTestNotification');
+    return null;
+  }
+
   getBudgetStatusEmoji(dailyBudget) {
     if (dailyBudget <= 0) return '🔴';
     if (dailyBudget <= 5) return '🟠';
@@ -297,7 +58,6 @@ class WebNotificationService {
     return '💚';
   }
 
-  // Helper: Format Currency
   formatCurrency(amount) {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -305,20 +65,30 @@ class WebNotificationService {
     }).format(amount);
   }
 
-  // Setup automatische tägliche Erinnerungen (vereinfacht für Web)
-  setupDailyReminders(dailyBudget, morningTime = 8, eveningTime = 20) {
-    // Für Web: Verwende setTimeout/setInterval oder lokale Scheduler
-    // Hinweis: Für persistente Erinnerungen über Browser-Sessions hinweg 
-    // würde man Service Workers verwenden
-    
-    console.log(`📅 Tägliche Web-Erinnerungen würden um ${morningTime}:00 und ${eveningTime}:00 aktiviert`);
-    console.log('💡 Für persistente Erinnerungen über Browser-Sessions hinweg, öffne die App regelmäßig');
+  setupDailyReminders() {
+    console.log('DUMMY: setupDailyReminders');
   }
 
-  // Prüfe aktuellen Permission-Status
   getPermissionStatus() {
     return this.permission;
   }
-}
 
-export default WebNotificationService; 
+  setServiceWorkerRegistration() {
+    console.log('DUMMY: setServiceWorkerRegistration');
+  }
+
+  async sendServiceWorkerNotification() {
+    console.log('DUMMY: sendServiceWorkerNotification');
+    return null;
+  }
+
+  checkIOSSettings() {
+    return {
+      isStandalone: false,
+      hasNotificationSupport: this.isSupported,
+      permissionStatus: this.permission,
+      hasServiceWorker: false,
+      recommendation: 'Dummy mode - alle Funktionen deaktiviert'
+    };
+  }
+} 
