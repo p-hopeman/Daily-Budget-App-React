@@ -45,6 +45,11 @@ export default function App() {
     loadData();
     calculateRemainingDays();
     
+    // 🔔 AUTO-SETUP: Benachrichtigungen automatisch einrichten (basierend auf Schritt 2 Learning)
+    if (Platform.OS === 'web') {
+      autoSetupWebNotifications();
+    }
+    
     // Timer für tägliche Aktualisierung
     const interval = setInterval(() => {
       calculateRemainingDays();
@@ -53,6 +58,66 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // 🔔 Automatische Benachrichtigung-Setup für Web (basierend auf Schritt 2 Learning)
+  const autoSetupWebNotifications = async () => {
+    try {
+      console.log('🔔 AUTO-SETUP: Prüfe Benachrichtigungsstatus...');
+      
+      // Nur wenn noch keine Permission erteilt wurde
+      if ('Notification' in window && Notification.permission === 'default') {
+        console.log('🔔 AUTO-SETUP: Keine Permission - starte automatische Einrichtung...');
+        
+        // Service Worker registrieren (wie in Schritt 2)
+        if ('serviceWorker' in navigator) {
+          try {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('🔔 AUTO-SETUP: Service Worker registriert');
+            
+            // Push Manager verfügbar?
+            if (registration.pushManager) {
+              // Permission requesten (der wichtige Teil!)
+              const permission = await Notification.requestPermission();
+              console.log('🔔 AUTO-SETUP: Permission erhalten:', permission);
+              
+              if (permission === 'granted') {
+                // Push Subscription erstellen
+                try {
+                  const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true
+                  });
+                  
+                  console.log('🔔 AUTO-SETUP: ✅ Push Subscription erstellt:', subscription);
+                  
+                  // Erfolgs-Benachrichtigung senden
+                  setTimeout(() => {
+                    new Notification('🎉 Daily Budget App', {
+                      body: 'Benachrichtigungen sind jetzt aktiv!',
+                      icon: '/favicon.ico',
+                      tag: 'welcome-notification'
+                    });
+                  }, 1000);
+                  
+                } catch (subscriptionError) {
+                  console.warn('🔔 AUTO-SETUP: Subscription-Fehler (aber Permission OK):', subscriptionError);
+                }
+              } else {
+                console.log('🔔 AUTO-SETUP: Permission verweigert - OK, respektieren wir');
+              }
+            }
+          } catch (swError) {
+            console.warn('🔔 AUTO-SETUP: Service Worker Fehler:', swError);
+          }
+        }
+      } else if (Notification.permission === 'granted') {
+        console.log('🔔 AUTO-SETUP: Permission bereits erteilt ✅');
+      } else {
+        console.log('🔔 AUTO-SETUP: Permission verweigert oder nicht unterstützt');
+      }
+    } catch (error) {
+      console.warn('🔔 AUTO-SETUP: Fehler (nicht kritisch):', error);
+    }
+  };
 
   // All notification functions removed for debugging
 
@@ -516,28 +581,30 @@ export default function App() {
                     const isPWA = window.matchMedia('(display-mode: standalone)').matches;
                     results.push(`📱 PWA installiert: ${isPWA ? '✅ JA' : '❌ NEIN'}`);
                     
-                                         // 8. Manifest vorhanden?
-                     const manifestLink = document.querySelector('link[rel="manifest"]');
-                     results.push(`📋 Manifest: ${manifestLink ? '✅ JA' : '❌ NEIN'}`);
-                     
-                     // 9. WICHTIGER API-TEST (aus der Liste):
-                     try {
-                       const apiTest = 'serviceWorker' in navigator && 'PushManager' in window;
-                       results.push(`🧪 API-Test (SW+Push): ${apiTest ? '✅ TRUE' : '❌ FALSE'}`);
-                       console.log('🧪 API-TEST RESULTAT:', apiTest);
-                       
-                       if (!apiTest) {
-                         criticalIssues.push('⚠️ Push-APIs nicht verfügbar');
-                       }
-                     } catch (testError) {
-                       results.push(`🧪 API-Test: ❌ FEHLER`);
-                       console.error('API-Test Fehler:', testError);
-                     }
-                     
-                     console.log('✅ SCHRITT 1 ERGEBNISSE:', results);
+                    // 8. Manifest vorhanden?
+                    const manifestLink = document.querySelector('link[rel="manifest"]');
+                    results.push(`📋 Manifest: ${manifestLink ? '✅ JA' : '❌ NEIN'}`);
                     
-                    // Kritische Checks
+                    // Kritische Checks initialisieren
                     const criticalIssues = [];
+                    
+                    // 9. WICHTIGER API-TEST (aus der Liste):
+                    try {
+                      const apiTest = 'serviceWorker' in navigator && 'PushManager' in window;
+                      results.push(`🧪 API-Test (SW+Push): ${apiTest ? '✅ TRUE' : '❌ FALSE'}`);
+                      console.log('🧪 API-TEST RESULTAT:', apiTest);
+                      
+                      if (!apiTest) {
+                        criticalIssues.push('⚠️ Push-APIs nicht verfügbar');
+                      }
+                    } catch (testError) {
+                      results.push(`🧪 API-Test: ❌ FEHLER`);
+                      console.error('API-Test Fehler:', testError);
+                    }
+                    
+                    console.log('✅ SCHRITT 1 ERGEBNISSE:', results);
+                    
+                    // Weitere kritische Checks
                     if (!isHTTPS) criticalIssues.push('⚠️ HTTPS fehlt');
                     if (!hasServiceWorker) criticalIssues.push('⚠️ ServiceWorker nicht unterstützt');
                     if (!hasPushManager) criticalIssues.push('⚠️ PushManager nicht unterstützt');
