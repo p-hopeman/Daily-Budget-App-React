@@ -65,25 +65,51 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔔 PWA & Benachrichtigung Setup mit detailliertem Debugging
+  // 🔔 PWA & Benachrichtigung Setup mit iOS-spezifischen Verbesserungen
   const setupPWAAndNotifications = async () => {
     try {
       console.log('🚀 PWA-SETUP: Starte vollständige PWA-Einrichtung...');
       setServiceWorkerStatus('initializing');
+      
+      // iOS-spezifische Erkennung und Checks
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isPWAStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      const isIOSPWA = isIOS && isPWAStandalone;
+      
+      console.log('📱 iOS-DIAGNOSE:');
+      console.log('  - iOS:', isIOS);
+      console.log('  - Safari:', isSafari);  
+      console.log('  - PWA-Modus:', isPWAStandalone);
+      console.log('  - iOS PWA:', isIOSPWA);
+      
+      // iOS PWA-Check: Nur installierte PWAs können Push auf iOS
+      if (isIOS && !isPWAStandalone) {
+        console.log('⚠️ iOS-WARNUNG: App nicht als PWA installiert - Push-Notifications nicht verfügbar');
+        setServiceWorkerStatus('ios-not-pwa');
+        return;
+      }
       
       // 1. Service Worker Check & Registration
       if ('serviceWorker' in navigator) {
         console.log('✅ PWA-SETUP: Service Worker API verfügbar');
         
         try {
-          // Service Worker registrieren mit detailliertem Logging
-          console.log('🔄 PWA-SETUP: Registriere Service Worker...');
+          // iOS-spezifische Service Worker Registration mit erweiterten Optionen
+          console.log('🔄 PWA-SETUP: Registriere Service Worker (iOS-optimiert)...');
           const registration = await navigator.serviceWorker.register('/sw.js', {
-            scope: '/'
+            scope: '/',
+            updateViaCache: 'none' // iOS-spezifisch: Cache-Probleme vermeiden
           });
           
           console.log('✅ PWA-SETUP: Service Worker erfolgreich registriert:', registration);
           setServiceWorkerStatus('registered');
+          
+          // iOS: Länger warten auf Service Worker Aktivierung
+          const waitTime = isIOS ? 3000 : 1000;
+          console.log(`⏰ PWA-SETUP: Warte ${waitTime}ms auf Service Worker Aktivierung...`);
+          
+          await new Promise(resolve => setTimeout(resolve, waitTime));
           
           // Warte auf Aktivierung
           if (registration.installing) {
@@ -101,47 +127,78 @@ export default function App() {
           if (registration.pushManager) {
             console.log('✅ PWA-SETUP: Push Manager verfügbar');
             
-            // 3. Notification Permission Check
-            console.log('🔔 PWA-SETUP: Aktuelle Permission:', Notification.permission);
-            
-            if (Notification.permission === 'default') {
-              console.log('🔔 PWA-SETUP: Frage nach Notification Permission...');
-              
-              // Kurz warten bevor Permission-Request
-              setTimeout(async () => {
-                try {
-                  const permission = await Notification.requestPermission();
-                  console.log('🔔 PWA-SETUP: Permission Antwort:', permission);
-                  
-                  if (permission === 'granted') {
-                    console.log('✅ PWA-SETUP: Permission erteilt! Erstelle Push Subscription...');
-                    
-                    try {
-                      const subscription = await registration.pushManager.subscribe({
-                        userVisibleOnly: true
-                      });
-                      
-                      console.log('✅ PWA-SETUP: Push Subscription erstellt:', subscription);
-                      
-                      // Willkommens-Benachrichtigung
-                      setTimeout(() => {
-                        new Notification('🎉 Daily Budget App', {
-                          body: 'PWA installiert & Benachrichtigungen aktiv!',
-                          icon: '/favicon.ico',
-                          tag: 'pwa-welcome'
-                        });
-                      }, 1500);
-                      
-                    } catch (subscriptionError) {
-                      console.error('❌ PWA-SETUP: Push Subscription Fehler:', subscriptionError);
-                    }
-                  } else {
-                    console.log('ℹ️ PWA-SETUP: Permission verweigert, respektieren wir');
-                  }
-                } catch (permError) {
-                  console.error('❌ PWA-SETUP: Permission Request Fehler:', permError);
-                }
-              }, 2000);
+                         // 3. iOS-spezifische Notification Permission Check
+             console.log('🔔 PWA-SETUP: Aktuelle Permission:', Notification.permission);
+             
+             if (Notification.permission === 'default') {
+               console.log('🔔 PWA-SETUP: Frage nach Notification Permission...');
+               
+               // iOS braucht längere Wartezeit und spezielle Behandlung
+               const permissionDelay = isIOS ? 5000 : 2000;
+               console.log(`⏰ iOS-TIMING: Warte ${permissionDelay}ms vor Permission-Request...`);
+               
+               setTimeout(async () => {
+                 try {
+                   console.log('🔔 iOS-PERMISSION: Starte Permission-Request...');
+                   const permission = await Notification.requestPermission();
+                   console.log('🔔 iOS-PERMISSION: Permission Antwort:', permission);
+                   
+                   if (permission === 'granted') {
+                     console.log('✅ iOS-PERMISSION: Permission erteilt! Erstelle Push Subscription...');
+                     
+                     // iOS: Zusätzliche Wartezeit vor Subscription
+                     if (isIOS) {
+                       console.log('⏰ iOS-TIMING: Warte weitere 2s vor Push Subscription...');
+                       await new Promise(resolve => setTimeout(resolve, 2000));
+                     }
+                     
+                     try {
+                       // iOS-spezifische Push Subscription Optionen
+                       const subscriptionOptions = {
+                         userVisibleOnly: true
+                       };
+                       
+                       console.log('🔄 iOS-SUBSCRIPTION: Erstelle Push Subscription mit Optionen:', subscriptionOptions);
+                       const subscription = await registration.pushManager.subscribe(subscriptionOptions);
+                       
+                       console.log('✅ iOS-SUBSCRIPTION: Push Subscription erfolgreich erstellt:', subscription);
+                       
+                       // iOS-spezifische Subscription-Details loggen
+                       if (subscription.endpoint) {
+                         const isAppleEndpoint = subscription.endpoint.includes('web.push.apple.com');
+                         console.log('📡 iOS-ENDPOINT:', isAppleEndpoint ? 'Apple Push Service ✅' : 'Anderer Service');
+                         console.log('🔗 iOS-URL:', subscription.endpoint.substring(0, 50) + '...');
+                       }
+                       
+                       // Willkommens-Benachrichtigung (iOS-optimiert)
+                       setTimeout(() => {
+                         console.log('🔔 iOS-NOTIFICATION: Sende Willkommens-Benachrichtigung...');
+                         const notification = new Notification('🎉 Daily Budget App', {
+                           body: isIOS ? 'PWA & iOS-Push aktiv!' : 'PWA installiert & Benachrichtigungen aktiv!',
+                           icon: '/favicon.ico',
+                           badge: '/favicon.ico', // iOS zeigt Badge an
+                           tag: 'ios-pwa-welcome',
+                           requireInteraction: false // iOS-spezifisch
+                         });
+                         
+                         notification.onclick = () => {
+                           console.log('🔔 iOS-NOTIFICATION: Willkommens-Notification geklickt');
+                           notification.close();
+                         };
+                       }, isIOS ? 3000 : 1500);
+                       
+                     } catch (subscriptionError) {
+                       console.error('❌ iOS-SUBSCRIPTION: Push Subscription Fehler:', subscriptionError);
+                       console.error('❌ iOS-SUBSCRIPTION: Fehler-Details:', subscriptionError.message);
+                     }
+                   } else {
+                     console.log('ℹ️ iOS-PERMISSION: Permission verweigert, respektieren wir');
+                   }
+                 } catch (permError) {
+                   console.error('❌ iOS-PERMISSION: Permission Request Fehler:', permError);
+                   console.error('❌ iOS-PERMISSION: Fehler-Details:', permError.message);
+                 }
+               }, permissionDelay);
               
             } else if (Notification.permission === 'granted') {
               console.log('✅ PWA-SETUP: Permission bereits erteilt');
@@ -1011,14 +1068,19 @@ export default function App() {
           <View style={styles.pwaPromptContent}>
             <Text style={styles.pwaPromptTitle}>📱 Als App installieren</Text>
             <Text style={styles.pwaPromptText}>
-              Installiere die Daily Budget App auf deinem {Platform.OS === 'ios' ? 'iPhone' : 'Gerät'} für eine bessere Erfahrung!
+              {/iPad|iPhone|iPod/.test(navigator.userAgent) ? 
+                'Installiere die App für Push-Benachrichtigungen!' : 
+                'Installiere die Daily Budget App für eine bessere Erfahrung!'
+              }
             </Text>
             {/iPad|iPhone|iPod/.test(navigator.userAgent) ? (
               <View style={styles.pwaPromptButtons}>
                 <Text style={styles.iosInstructions}>
+                  🚨 WICHTIG für Benachrichtigungen:{'\n\n'}
                   1. Tippe auf das Teilen-Symbol ↗️{'\n'}
                   2. Wähle "Zum Home-Bildschirm"{'\n'}
-                  3. Tippe "Hinzufügen"
+                  3. Tippe "Hinzufügen"{'\n'}
+                  4. Öffne App vom Home-Bildschirm
                 </Text>
                 <TouchableOpacity
                   style={[styles.pwaButton, styles.pwaButtonSecondary]}
@@ -1054,13 +1116,22 @@ export default function App() {
         </View>
       )}
 
-      {/* Debug Console (nur im Web) */}
+      {/* iOS-spezifische Debug Console */}
       {isWeb && (
         <View style={styles.debugConsole}>
-          <Text style={styles.debugTitle}>🔧 PWA Debug Status</Text>
+          <Text style={styles.debugTitle}>
+            {/iPad|iPhone|iPod/.test(navigator.userAgent) ? '📱 iOS PWA Debug' : '🔧 PWA Debug Status'}
+          </Text>
           <Text style={styles.debugText}>SW: {serviceWorkerStatus}</Text>
           <Text style={styles.debugText}>Permission: {typeof Notification !== 'undefined' ? Notification.permission : 'N/A'}</Text>
           <Text style={styles.debugText}>PWA: {window.matchMedia('(display-mode: standalone)').matches ? 'Installiert' : 'Browser'}</Text>
+          {/iPad|iPhone|iPod/.test(navigator.userAgent) && (
+            <>
+              <Text style={styles.debugText}>iOS: ✅</Text>
+              <Text style={styles.debugText}>Safari: {/^((?!chrome|android).)*safari/i.test(navigator.userAgent) ? '✅' : '❌'}</Text>
+              <Text style={styles.debugText}>Standalone: {window.matchMedia('(display-mode: standalone)').matches ? '✅' : '❌'}</Text>
+            </>
+          )}
           <TouchableOpacity
             style={styles.debugRefreshButton}
             onPress={() => {
@@ -1070,6 +1141,11 @@ export default function App() {
           >
             <Text style={styles.debugRefreshText}>🔄 Neu laden</Text>
           </TouchableOpacity>
+          {/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches && (
+            <View style={styles.iosWarning}>
+              <Text style={styles.iosWarningText}>⚠️ Installiere als PWA für Push!</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -1572,5 +1648,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#FFF',
     fontWeight: 'bold',
+  },
+  iosWarning: {
+    backgroundColor: '#FF6B6B',
+    borderRadius: 4,
+    padding: 6,
+    marginTop: 6,
+    alignItems: 'center',
+  },
+  iosWarningText: {
+    fontSize: 9,
+    color: '#FFF',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
