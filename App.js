@@ -1558,23 +1558,29 @@ export default function App() {
                 <TouchableOpacity
                   style={[styles.pwaButton, styles.pwaButtonSecondary]}
                   onPress={() => {
-                    // iOS-spezifische Anleitung vor dem Schließen nochmal betonen
-                    Alert.alert(
-                      '📱 iOS PWA Installation',
-                      'WICHTIGE SCHRITTE:\n\n' +
-                      '1. Safari → Teilen ↗️ → "Zum Home-Bildschirm"\n' +
-                      '2. App wird auf Home-Bildschirm hinzugefügt\n' +
-                      '3. Safari SCHLIESSEN\n' +
-                      '4. App NUR vom Home-Bildschirm öffnen\n\n' +
-                      'Nur dann funktionieren Push-Benachrichtigungen!',
-                      [
-                        { text: 'Verstanden', onPress: () => setShowPWAPrompt(false) },
-                        { text: 'Nochmal zeigen' }
-                      ]
-                    );
+                    console.log('🔧 PWA Banner: Verstanden geklickt');
+                    setShowPWAPrompt(false);
                   }}
                 >
-                  <Text style={styles.pwaButtonTextSecondary}>Verstanden</Text>
+                  <Text style={styles.pwaButtonTextSecondary}>Banner schließen</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.pwaButton, { backgroundColor: '#FF0000', marginTop: 8 }]}
+                  onPress={() => {
+                    console.log('🔧 PWA Banner: Direkt zu Diagnose');
+                    setShowPWAPrompt(false);
+                    // Kurz warten, dann Alert mit Hinweis auf Diagnose-Button
+                    setTimeout(() => {
+                      Alert.alert(
+                        '🔍 iOS Diagnose verfügbar',
+                        'Scroll nach unten zum roten "🔍 iOS DIAGNOSE" Button für eine vollständige Analyse deines iOS Push-Notification Problems.',
+                        [{ text: 'OK' }]
+                      );
+                    }, 500);
+                  }}
+                >
+                  <Text style={styles.pwaButtonText}>🔍 Direkt zur Diagnose</Text>
                 </TouchableOpacity>
               </View>
             ) : (
