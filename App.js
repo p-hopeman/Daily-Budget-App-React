@@ -1011,6 +1011,128 @@ export default function App() {
                 </Text>
               </TouchableOpacity>
             )}
+            
+            {/* iOS Diagnose Button - EINFACH & SICHTBAR */}
+            <TouchableOpacity 
+              style={[styles.debugButton, { backgroundColor: '#FF0000', marginTop: 10, paddingVertical: 12 }]}
+              onPress={async () => {
+                try {
+                  // Einfache iOS-Erkennung
+                  const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                  
+                  if (!isiOS) {
+                    Alert.alert('ℹ️ Nur für iOS', 'Dieser Check ist nur für iPhone/iPad gedacht.');
+                    return;
+                  }
+                  
+                  console.log('🔍 iOS DIAGNOSE: Starte Checkliste...');
+                  
+                  const checks = [];
+                  
+                  // CHECK 1: iOS Version
+                  const userAgent = navigator.userAgent;
+                  const versionMatch = userAgent.match(/OS (\d+)_(\d+)/);
+                  if (versionMatch) {
+                    const major = parseInt(versionMatch[1]);
+                    const minor = parseInt(versionMatch[2]);
+                    const supported = major > 16 || (major === 16 && minor >= 4);
+                    checks.push(`✅ iOS ${major}.${minor} ${supported ? '(✅ OK)' : '(❌ Zu alt)'}`);
+                  } else {
+                    checks.push(`⚠️ iOS Version unbekannt`);
+                  }
+                  
+                  // CHECK 2: PWA Status
+                  const standalone1 = window.matchMedia('(display-mode: standalone)').matches;
+                  const standalone2 = window.navigator.standalone === true;
+                  const isPWA = standalone1 || standalone2;
+                  checks.push(`${isPWA ? '✅' : '❌'} PWA: ${isPWA ? 'Installiert' : 'Browser-Modus'}`);
+                  checks.push(`  - display-mode: ${standalone1 ? 'standalone' : 'browser'}`);
+                  checks.push(`  - navigator.standalone: ${standalone2 ? 'true' : 'false/undefined'}`);
+                  
+                  // CHECK 3: APIs
+                  const hasNotification = 'Notification' in window;
+                  const hasSW = 'serviceWorker' in navigator;
+                  const hasPM = 'PushManager' in window;
+                  checks.push(`${hasNotification ? '✅' : '❌'} Notification API: ${hasNotification ? 'JA' : 'NEIN'}`);
+                  checks.push(`${hasSW ? '✅' : '❌'} ServiceWorker: ${hasSW ? 'JA' : 'NEIN'}`);
+                  checks.push(`${hasPM ? '✅' : '❌'} PushManager: ${hasPM ? 'JA' : 'NEIN'}`);
+                  
+                  // CHECK 4: Permission
+                  if (hasNotification) {
+                    const permission = Notification.permission;
+                    checks.push(`${permission === 'granted' ? '✅' : permission === 'default' ? '⚠️' : '❌'} Permission: ${permission.toUpperCase()}`);
+                  }
+                  
+                  // CHECK 5: Subscription
+                  if (hasSW) {
+                    try {
+                      const registration = await navigator.serviceWorker.getRegistration();
+                      if (registration && registration.pushManager) {
+                        const subscription = await registration.pushManager.getSubscription();
+                        if (subscription) {
+                          const isApple = subscription.endpoint.includes('web.push.apple.com');
+                          checks.push(`✅ Subscription: ${isApple ? 'Apple ✅' : 'Anderer Service'}`);
+                        } else {
+                          checks.push(`❌ Subscription: Keine vorhanden`);
+                        }
+                      } else {
+                        checks.push(`❌ Subscription: SW nicht bereit`);
+                      }
+                    } catch (e) {
+                      checks.push(`❌ Subscription: Fehler - ${e.message}`);
+                    }
+                  }
+                  
+                  // Empfehlung
+                  let recommendation = '';
+                  if (!isiOS) {
+                    recommendation = '\n⚠️ Kein iOS-Gerät';
+                  } else if (!isPWA) {
+                    recommendation = '\n🚨 AKTION: Safari → Teilen ↗️ → "Zum Home-Bildschirm" → Safari SCHLIEßEN → App vom Home-Bildschirm starten!';
+                  } else if (!hasNotification) {
+                    recommendation = '\n⚠️ PROBLEM: Notification API nicht verfügbar in diesem Kontext';
+                  } else if (hasNotification && Notification.permission === 'default') {
+                    recommendation = '\n✅ BEREIT: Permission-Dialog sollte bald kommen...';
+                  } else if (Notification.permission === 'granted') {
+                    recommendation = '\n🎉 PERFEKT: Alles sollte funktionieren!';
+                  } else {
+                    recommendation = '\n❌ PROBLEM: Permission verweigert - iOS Einstellungen prüfen';
+                  }
+                  
+                  Alert.alert(
+                    '🔍 iOS Push-Diagnose',
+                    checks.join('\n') + recommendation,
+                    [
+                      {
+                        text: 'Vollständige Logs',
+                        onPress: () => {
+                          console.log('📱 VOLLSTÄNDIGE iOS-DIAGNOSE:');
+                          console.log('User Agent:', navigator.userAgent);
+                          console.log('Display-Mode Tests:', {
+                            standalone: window.matchMedia('(display-mode: standalone)').matches,
+                            browser: window.matchMedia('(display-mode: browser)').matches
+                          });
+                          console.log('Navigator:', {
+                            standalone: window.navigator.standalone,
+                            onLine: navigator.onLine,
+                            cookieEnabled: navigator.cookieEnabled
+                          });
+                        }
+                      },
+                      { text: 'OK' }
+                    ]
+                  );
+                  
+                } catch (error) {
+                  console.error('❌ iOS Diagnose Fehler:', error);
+                  Alert.alert('❌ Fehler', `Diagnose fehlgeschlagen:\n${error.message}`);
+                }
+              }}
+            >
+              <Text style={[styles.debugButtonText, { fontSize: 11, fontWeight: '700' }]}>
+                🔍 iOS DIAGNOSE
+              </Text>
+            </TouchableOpacity>
             {isWeb && /iPad|iPhone|iPod/.test(navigator.userAgent) && (
               <TouchableOpacity 
                 style={[styles.debugButton, { backgroundColor: '#FF9500', marginTop: 10 }]}
