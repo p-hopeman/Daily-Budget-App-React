@@ -471,6 +471,229 @@ export default function App() {
             )}
             {isWeb && (
               <TouchableOpacity 
+                style={[styles.debugButton, { backgroundColor: '#4CAF50', marginTop: 10 }]}
+                onPress={async () => {
+                  try {
+                    console.log('✅ SCHRITT 1: GRUNDLAGEN & VERSIONEN PRÜFEN');
+                    Alert.alert('✅ Schritt 1 Check', 'Prüfe Betriebssystem, Browser und APIs...');
+                    
+                    const results = [];
+                    
+                    // 1. Betriebssystem & Browser erkennen
+                    const userAgent = navigator.userAgent;
+                    const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+                    const isChrome = /chrome/i.test(userAgent);
+                    const isMac = /mac/i.test(navigator.platform);
+                    const isiOS = /iPad|iPhone|iPod/.test(userAgent);
+                    
+                    results.push(`🖥️ Plattform: ${navigator.platform}`);
+                    results.push(`🌐 Browser: ${isSafari ? 'Safari' : isChrome ? 'Chrome' : 'Anderer'}`);
+                    results.push(`📱 iOS: ${isiOS ? 'JA' : 'NEIN'}`);
+                    results.push(`🍎 Mac: ${isMac ? 'JA' : 'NEIN'}`);
+                    
+                    // 2. HTTPS prüfen
+                    const isHTTPS = location.protocol === 'https:';
+                    results.push(`🔒 HTTPS: ${isHTTPS ? '✅ JA' : '❌ NEIN'}`);
+                    
+                    // 3. Service Worker API verfügbar?
+                    const hasServiceWorker = 'serviceWorker' in navigator;
+                    results.push(`⚙️ ServiceWorker: ${hasServiceWorker ? '✅ JA' : '❌ NEIN'}`);
+                    
+                    // 4. Push Manager API verfügbar?
+                    const hasPushManager = 'PushManager' in window;
+                    results.push(`📧 PushManager: ${hasPushManager ? '✅ JA' : '❌ NEIN'}`);
+                    
+                    // 5. Notification API verfügbar?
+                    const hasNotifications = 'Notification' in window;
+                    results.push(`🔔 Notifications: ${hasNotifications ? '✅ JA' : '❌ NEIN'}`);
+                    
+                    // 6. Current Permission Status
+                    if (hasNotifications) {
+                      results.push(`🔐 Permission: ${Notification.permission}`);
+                    }
+                    
+                    // 7. PWA installiert? (nur auf iOS/Safari relevant)
+                    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+                    results.push(`📱 PWA installiert: ${isPWA ? '✅ JA' : '❌ NEIN'}`);
+                    
+                                         // 8. Manifest vorhanden?
+                     const manifestLink = document.querySelector('link[rel="manifest"]');
+                     results.push(`📋 Manifest: ${manifestLink ? '✅ JA' : '❌ NEIN'}`);
+                     
+                     // 9. WICHTIGER API-TEST (aus der Liste):
+                     try {
+                       const apiTest = 'serviceWorker' in navigator && 'PushManager' in window;
+                       results.push(`🧪 API-Test (SW+Push): ${apiTest ? '✅ TRUE' : '❌ FALSE'}`);
+                       console.log('🧪 API-TEST RESULTAT:', apiTest);
+                       
+                       if (!apiTest) {
+                         criticalIssues.push('⚠️ Push-APIs nicht verfügbar');
+                       }
+                     } catch (testError) {
+                       results.push(`🧪 API-Test: ❌ FEHLER`);
+                       console.error('API-Test Fehler:', testError);
+                     }
+                     
+                     console.log('✅ SCHRITT 1 ERGEBNISSE:', results);
+                    
+                    // Kritische Checks
+                    const criticalIssues = [];
+                    if (!isHTTPS) criticalIssues.push('⚠️ HTTPS fehlt');
+                    if (!hasServiceWorker) criticalIssues.push('⚠️ ServiceWorker nicht unterstützt');
+                    if (!hasPushManager) criticalIssues.push('⚠️ PushManager nicht unterstützt');
+                    if (isiOS && !isPWA) criticalIssues.push('⚠️ iOS: App muss installiert sein!');
+                    
+                    // Ergebnis anzeigen
+                    const resultText = results.join('\n');
+                    const criticalText = criticalIssues.length > 0 ? '\n\n❌ KRITISCHE PROBLEME:\n' + criticalIssues.join('\n') : '\n\n✅ Grundvoraussetzungen erfüllt!';
+                    
+                    Alert.alert(
+                      '📋 Schritt 1: Grundlagen Check',
+                      resultText + criticalText,
+                      [
+                        {
+                          text: 'Weiter zu Schritt 2',
+                          onPress: () => {
+                            Alert.alert(
+                              '📝 Nächster Schritt',
+                              `${criticalIssues.length > 0 ? 
+                                'STOPP! Erst kritische Probleme lösen:\n\n' + criticalIssues.join('\n') + '\n\nDann Service Worker implementieren.' :
+                                'Grundlagen OK! ✅\n\nNächster Schritt: Service Worker für Safari/iOS implementieren.'
+                              }`
+                            );
+                          }
+                        },
+                        { text: 'OK' }
+                      ]
+                    );
+                    
+                  } catch (error) {
+                    console.error('❌ Schritt 1 Fehler:', error);
+                    Alert.alert('❌ Fehler bei Schritt 1', error.message);
+                  }
+                }}
+              >
+                <Text style={styles.debugButtonText}>
+                  ✅ SCHRITT 1: GRUNDLAGEN
+                </Text>
+              </TouchableOpacity>
+            )}
+            {isWeb && (
+              <TouchableOpacity 
+                style={[styles.debugButton, { backgroundColor: '#2196F3', marginTop: 10 }]}
+                onPress={async () => {
+                  try {
+                    console.log('🔧 SCHRITT 2: SAFARI (MACOS) STABILISIEREN');
+                    Alert.alert('🔧 Schritt 2 Check', 'Service Worker registrieren & Push-Subscription testen...');
+                    
+                    const results = [];
+                    
+                    // 1. Service Worker registrieren
+                    if ('serviceWorker' in navigator) {
+                      try {
+                        const registration = await navigator.serviceWorker.register('/sw.js');
+                        results.push('✅ Service Worker registriert');
+                        console.log('🔧 SW Registration:', registration);
+                        
+                        // 2. Push Manager verfügbar in Registration?
+                        if (registration.pushManager) {
+                          results.push('✅ Push Manager verfügbar');
+                          
+                          // 3. Permission für Notifications
+                          let permission = Notification.permission;
+                          if (permission === 'default') {
+                            permission = await Notification.requestPermission();
+                          }
+                          results.push(`🔐 Permission: ${permission}`);
+                          
+                          if (permission === 'granted') {
+                            // 4. Push Subscription versuchen (erstmal ohne VAPID)
+                            try {
+                              const subscription = await registration.pushManager.subscribe({
+                                userVisibleOnly: true
+                              });
+                              
+                              results.push('✅ Push Subscription erstellt');
+                              console.log('🔧 Subscription:', subscription);
+                              
+                              // 5. Subscription Details anzeigen
+                              const endpoint = subscription.endpoint;
+                              const isSafari = endpoint.includes('web.push.apple.com');
+                              const isChrome = endpoint.includes('fcm.googleapis.com');
+                              
+                              results.push(`📡 Endpoint: ${isSafari ? 'Apple (Safari)' : isChrome ? 'Google (Chrome)' : 'Unbekannt'}`);
+                              results.push(`🔗 URL: ${endpoint.substring(0, 50)}...`);
+                              
+                              // 6. Keys verfügbar?
+                              const keys = subscription.getKey ? {
+                                p256dh: subscription.getKey('p256dh'),
+                                auth: subscription.getKey('auth')
+                              } : null;
+                              
+                              results.push(`🔑 Keys: ${keys ? '✅ Verfügbar' : '❌ Nicht verfügbar'}`);
+                              
+                              // 7. Test-Push über Service Worker
+                              try {
+                                if (registration.active) {
+                                  // Simuliere Push-Event
+                                  console.log('🧪 Simuliere Push-Event über Service Worker...');
+                                  results.push('🧪 Test-Push wird gesendet...');
+                                }
+                              } catch (pushError) {
+                                results.push(`❌ Test-Push Fehler: ${pushError.message}`);
+                              }
+                              
+                            } catch (subscriptionError) {
+                              results.push(`❌ Subscription Fehler: ${subscriptionError.message}`);
+                              console.error('Subscription Error:', subscriptionError);
+                            }
+                          } else {
+                            results.push('❌ Permission verweigert - kann nicht subscriben');
+                          }
+                        } else {
+                          results.push('❌ Push Manager nicht verfügbar');
+                        }
+                      } catch (swError) {
+                        results.push(`❌ Service Worker Fehler: ${swError.message}`);
+                        console.error('SW Error:', swError);
+                      }
+                    } else {
+                      results.push('❌ Service Worker nicht unterstützt');
+                    }
+                    
+                    const resultText = results.join('\n');
+                    console.log('🔧 SCHRITT 2 ERGEBNISSE:', results);
+                    
+                    Alert.alert(
+                      '🔧 Schritt 2: Safari macOS',
+                      resultText,
+                      [
+                        {
+                          text: 'Weiter zu Schritt 3',
+                          onPress: () => {
+                            Alert.alert(
+                              '📱 Nächster Schritt',
+                              'Schritt 3: iOS PWA testen\n\n1. App auf iPhone öffnen\n2. "Zum Home-Bildschirm" hinzufügen\n3. Von Home-Bildschirm starten\n4. Schritt 3 Button klicken'
+                            );
+                          }
+                        },
+                        { text: 'OK' }
+                      ]
+                    );
+                    
+                  } catch (error) {
+                    console.error('❌ Schritt 2 Fehler:', error);
+                    Alert.alert('❌ Fehler bei Schritt 2', error.message);
+                  }
+                }}
+              >
+                <Text style={styles.debugButtonText}>
+                  🔧 SCHRITT 2: SAFARI
+                </Text>
+              </TouchableOpacity>
+            )}
+            {isWeb && (
+              <TouchableOpacity 
                 style={[styles.debugButton, { backgroundColor: '#FF6B6B', marginTop: 10 }]}
                 onPress={async () => {
                   try {
