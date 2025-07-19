@@ -39,15 +39,21 @@ export default function App() {
   const [transactionDescription, setTransactionDescription] = useState('');
   const [isDeposit, setIsDeposit] = useState(true);
   const [showingSettings, setShowingSettings] = useState(false);
+  
+  // 📱 PWA States
+  const [showPWAPrompt, setShowPWAPrompt] = useState(false);
+  const [pwaInstallPrompt, setPwaInstallPrompt] = useState(null);
+  const [serviceWorkerStatus, setServiceWorkerStatus] = useState('unknown');
 
   // Lade Daten beim App-Start (Notifications komplett entfernt)
   useEffect(() => {
     loadData();
     calculateRemainingDays();
     
-    // 🔔 AUTO-SETUP: Benachrichtigungen automatisch einrichten (basierend auf Schritt 2 Learning)
+    // 🔔 AUTO-SETUP: PWA & Benachrichtigungen automatisch einrichten
     if (Platform.OS === 'web') {
-      autoSetupWebNotifications();
+      setupPWAAndNotifications();
+      checkPWAInstallability();
     }
     
     // Timer für tägliche Aktualisierung
@@ -59,64 +65,129 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔔 Automatische Benachrichtigung-Setup für Web (basierend auf Schritt 2 Learning)
-  const autoSetupWebNotifications = async () => {
+  // 🔔 PWA & Benachrichtigung Setup mit detailliertem Debugging
+  const setupPWAAndNotifications = async () => {
     try {
-      console.log('🔔 AUTO-SETUP: Prüfe Benachrichtigungsstatus...');
+      console.log('🚀 PWA-SETUP: Starte vollständige PWA-Einrichtung...');
+      setServiceWorkerStatus('initializing');
       
-      // Nur wenn noch keine Permission erteilt wurde
-      if ('Notification' in window && Notification.permission === 'default') {
-        console.log('🔔 AUTO-SETUP: Keine Permission - starte automatische Einrichtung...');
+      // 1. Service Worker Check & Registration
+      if ('serviceWorker' in navigator) {
+        console.log('✅ PWA-SETUP: Service Worker API verfügbar');
         
-        // Service Worker registrieren (wie in Schritt 2)
-        if ('serviceWorker' in navigator) {
-          try {
-            const registration = await navigator.serviceWorker.register('/sw.js');
-            console.log('🔔 AUTO-SETUP: Service Worker registriert');
-            
-            // Push Manager verfügbar?
-            if (registration.pushManager) {
-              // Permission requesten (der wichtige Teil!)
-              const permission = await Notification.requestPermission();
-              console.log('🔔 AUTO-SETUP: Permission erhalten:', permission);
-              
-              if (permission === 'granted') {
-                // Push Subscription erstellen
-                try {
-                  const subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true
-                  });
-                  
-                  console.log('🔔 AUTO-SETUP: ✅ Push Subscription erstellt:', subscription);
-                  
-                  // Erfolgs-Benachrichtigung senden
-                  setTimeout(() => {
-                    new Notification('🎉 Daily Budget App', {
-                      body: 'Benachrichtigungen sind jetzt aktiv!',
-                      icon: '/favicon.ico',
-                      tag: 'welcome-notification'
-                    });
-                  }, 1000);
-                  
-                } catch (subscriptionError) {
-                  console.warn('🔔 AUTO-SETUP: Subscription-Fehler (aber Permission OK):', subscriptionError);
-                }
-              } else {
-                console.log('🔔 AUTO-SETUP: Permission verweigert - OK, respektieren wir');
-              }
-            }
-          } catch (swError) {
-            console.warn('🔔 AUTO-SETUP: Service Worker Fehler:', swError);
+        try {
+          // Service Worker registrieren mit detailliertem Logging
+          console.log('🔄 PWA-SETUP: Registriere Service Worker...');
+          const registration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/'
+          });
+          
+          console.log('✅ PWA-SETUP: Service Worker erfolgreich registriert:', registration);
+          setServiceWorkerStatus('registered');
+          
+          // Warte auf Aktivierung
+          if (registration.installing) {
+            console.log('🔄 PWA-SETUP: Service Worker wird installiert...');
+            setServiceWorkerStatus('installing');
+          } else if (registration.waiting) {
+            console.log('🔄 PWA-SETUP: Service Worker wartet auf Aktivierung...');
+            setServiceWorkerStatus('waiting');
+          } else if (registration.active) {
+            console.log('✅ PWA-SETUP: Service Worker ist aktiv');
+            setServiceWorkerStatus('active');
           }
+          
+          // 2. Push Manager Check
+          if (registration.pushManager) {
+            console.log('✅ PWA-SETUP: Push Manager verfügbar');
+            
+            // 3. Notification Permission Check
+            console.log('🔔 PWA-SETUP: Aktuelle Permission:', Notification.permission);
+            
+            if (Notification.permission === 'default') {
+              console.log('🔔 PWA-SETUP: Frage nach Notification Permission...');
+              
+              // Kurz warten bevor Permission-Request
+              setTimeout(async () => {
+                try {
+                  const permission = await Notification.requestPermission();
+                  console.log('🔔 PWA-SETUP: Permission Antwort:', permission);
+                  
+                  if (permission === 'granted') {
+                    console.log('✅ PWA-SETUP: Permission erteilt! Erstelle Push Subscription...');
+                    
+                    try {
+                      const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true
+                      });
+                      
+                      console.log('✅ PWA-SETUP: Push Subscription erstellt:', subscription);
+                      
+                      // Willkommens-Benachrichtigung
+                      setTimeout(() => {
+                        new Notification('🎉 Daily Budget App', {
+                          body: 'PWA installiert & Benachrichtigungen aktiv!',
+                          icon: '/favicon.ico',
+                          tag: 'pwa-welcome'
+                        });
+                      }, 1500);
+                      
+                    } catch (subscriptionError) {
+                      console.error('❌ PWA-SETUP: Push Subscription Fehler:', subscriptionError);
+                    }
+                  } else {
+                    console.log('ℹ️ PWA-SETUP: Permission verweigert, respektieren wir');
+                  }
+                } catch (permError) {
+                  console.error('❌ PWA-SETUP: Permission Request Fehler:', permError);
+                }
+              }, 2000);
+              
+            } else if (Notification.permission === 'granted') {
+              console.log('✅ PWA-SETUP: Permission bereits erteilt');
+            } else {
+              console.log('ℹ️ PWA-SETUP: Permission bereits verweigert');
+            }
+          } else {
+            console.warn('⚠️ PWA-SETUP: Push Manager nicht verfügbar');
+          }
+          
+        } catch (swError) {
+          console.error('❌ PWA-SETUP: Service Worker Registration Fehler:', swError);
+          setServiceWorkerStatus('error');
         }
-      } else if (Notification.permission === 'granted') {
-        console.log('🔔 AUTO-SETUP: Permission bereits erteilt ✅');
       } else {
-        console.log('🔔 AUTO-SETUP: Permission verweigert oder nicht unterstützt');
+        console.warn('⚠️ PWA-SETUP: Service Worker nicht unterstützt');
+        setServiceWorkerStatus('unsupported');
       }
     } catch (error) {
-      console.warn('🔔 AUTO-SETUP: Fehler (nicht kritisch):', error);
+      console.error('❌ PWA-SETUP: Allgemeiner Fehler:', error);
+      setServiceWorkerStatus('error');
     }
+  };
+
+  // 📱 PWA Installierbarkeit prüfen
+  const checkPWAInstallability = () => {
+    // iOS Safari PWA Check
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isPWAStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    
+    console.log('📱 PWA-CHECK: iOS:', isIOS, 'Safari:', isSafari, 'Standalone:', isPWAStandalone);
+    
+    // Zeige Installation Banner für iOS wenn nicht installiert
+    if (isIOS && isSafari && !isPWAStandalone) {
+      console.log('📱 PWA-CHECK: iOS Safari erkannt - zeige Installation Banner');
+      setShowPWAPrompt(true);
+    }
+    
+    // BeforeInstallPrompt Event (Chrome/Edge)
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('📱 PWA-CHECK: BeforeInstallPrompt Event empfangen');
+      e.preventDefault();
+      setPwaInstallPrompt(e);
+      setShowPWAPrompt(true);
+    });
   };
 
   // All notification functions removed for debugging
@@ -934,6 +1005,74 @@ export default function App() {
         </View>
       </LinearGradient>
 
+      {/* PWA Installation Banner */}
+      {isWeb && showPWAPrompt && (
+        <View style={styles.pwaPrompt}>
+          <View style={styles.pwaPromptContent}>
+            <Text style={styles.pwaPromptTitle}>📱 Als App installieren</Text>
+            <Text style={styles.pwaPromptText}>
+              Installiere die Daily Budget App auf deinem {Platform.OS === 'ios' ? 'iPhone' : 'Gerät'} für eine bessere Erfahrung!
+            </Text>
+            {/iPad|iPhone|iPod/.test(navigator.userAgent) ? (
+              <View style={styles.pwaPromptButtons}>
+                <Text style={styles.iosInstructions}>
+                  1. Tippe auf das Teilen-Symbol ↗️{'\n'}
+                  2. Wähle "Zum Home-Bildschirm"{'\n'}
+                  3. Tippe "Hinzufügen"
+                </Text>
+                <TouchableOpacity
+                  style={[styles.pwaButton, styles.pwaButtonSecondary]}
+                  onPress={() => setShowPWAPrompt(false)}
+                >
+                  <Text style={styles.pwaButtonTextSecondary}>Später</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.pwaPromptButtons}>
+                <TouchableOpacity
+                  style={styles.pwaButton}
+                  onPress={async () => {
+                    if (pwaInstallPrompt) {
+                      const result = await pwaInstallPrompt.prompt();
+                      console.log('PWA Installation:', result);
+                      setPwaInstallPrompt(null);
+                    }
+                    setShowPWAPrompt(false);
+                  }}
+                >
+                  <Text style={styles.pwaButtonText}>Installieren</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pwaButton, styles.pwaButtonSecondary]}
+                  onPress={() => setShowPWAPrompt(false)}
+                >
+                  <Text style={styles.pwaButtonTextSecondary}>Später</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Debug Console (nur im Web) */}
+      {isWeb && (
+        <View style={styles.debugConsole}>
+          <Text style={styles.debugTitle}>🔧 PWA Debug Status</Text>
+          <Text style={styles.debugText}>SW: {serviceWorkerStatus}</Text>
+          <Text style={styles.debugText}>Permission: {typeof Notification !== 'undefined' ? Notification.permission : 'N/A'}</Text>
+          <Text style={styles.debugText}>PWA: {window.matchMedia('(display-mode: standalone)').matches ? 'Installiert' : 'Browser'}</Text>
+          <TouchableOpacity
+            style={styles.debugRefreshButton}
+            onPress={() => {
+              console.log('🔄 DEBUG: Force refresh PWA setup...');
+              setupPWAAndNotifications();
+            }}
+          >
+            <Text style={styles.debugRefreshText}>🔄 Neu laden</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Transaction Modal */}
       <Modal
         visible={showingAddTransaction}
@@ -1324,5 +1463,114 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: 'white',
+  },
+  
+  // PWA Styles
+  pwaPrompt: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    zIndex: 1000,
+  },
+  pwaPromptContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  pwaPromptTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  pwaPromptText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  pwaPromptButtons: {
+    gap: 12,
+  },
+  pwaButton: {
+    backgroundColor: '#0A84FF',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  pwaButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  pwaButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  pwaButtonTextSecondary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  iosInstructions: {
+    fontSize: 14,
+    color: '#0A84FF',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  
+  // Debug Console Styles
+  debugConsole: {
+    position: 'absolute',
+    top: 50,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 8,
+    padding: 10,
+    minWidth: 150,
+    zIndex: 999,
+  },
+  debugTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 6,
+  },
+  debugText: {
+    fontSize: 10,
+    color: '#FFF',
+    marginBottom: 2,
+    fontFamily: 'monospace',
+  },
+  debugRefreshButton: {
+    backgroundColor: '#0A84FF',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    marginTop: 6,
+    alignItems: 'center',
+  },
+  debugRefreshText: {
+    fontSize: 10,
+    color: '#FFF',
+    fontWeight: 'bold',
   },
 });
