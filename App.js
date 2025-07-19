@@ -223,19 +223,44 @@ export default function App() {
     }
   };
 
-  // 📱 PWA Installierbarkeit prüfen
+  // 📱 PWA Installierbarkeit prüfen mit verbesserter iOS-Detection
   const checkPWAInstallability = () => {
-    // iOS Safari PWA Check
+    // iOS Safari PWA Check mit mehreren Detection-Methoden
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    const isPWAStandalone = window.matchMedia('(display-mode: standalone)').matches;
     
-    console.log('📱 PWA-CHECK: iOS:', isIOS, 'Safari:', isSafari, 'Standalone:', isPWAStandalone);
+    // Multiple iOS PWA Detection-Methoden (iOS ist tricky!)
+    const isPWAStandalone1 = window.matchMedia('(display-mode: standalone)').matches;
+    const isPWAStandalone2 = window.navigator.standalone === true; // iOS-spezifisch
+    const isPWAStandalone3 = !window.matchMedia('(display-mode: browser)').matches;
+    const isPWAStandalone = isPWAStandalone1 || isPWAStandalone2;
+    
+    // Erweiterte iOS PWA-Diagnostik
+    console.log('📱 PWA-CHECK DIAGNOSE:');
+    console.log('  - iOS Device:', isIOS);
+    console.log('  - Safari Browser:', isSafari);
+    console.log('  - Display-Mode Standalone:', isPWAStandalone1);
+    console.log('  - Navigator Standalone (iOS):', isPWAStandalone2);
+    console.log('  - Not Browser Mode:', isPWAStandalone3);
+    console.log('  - PWA Status Final:', isPWAStandalone);
+    console.log('  - Window Location:', window.location.href);
+    console.log('  - User Agent:', navigator.userAgent.substring(0, 100) + '...');
     
     // Zeige Installation Banner für iOS wenn nicht installiert
-    if (isIOS && isSafari && !isPWAStandalone) {
-      console.log('📱 PWA-CHECK: iOS Safari erkannt - zeige Installation Banner');
+    if (isIOS && !isPWAStandalone) {
+      console.log('📱 PWA-CHECK: iOS ohne PWA-Modus erkannt - zeige Installation Banner');
       setShowPWAPrompt(true);
+      
+      // Zusätzlicher Check nach 3 Sekunden (iOS braucht manchmal Zeit)
+      setTimeout(() => {
+        const recheckStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        console.log('📱 PWA-RECHECK: Standalone nach 3s:', recheckStandalone);
+        if (!recheckStandalone) {
+          console.log('📱 PWA-RECHECK: Immer noch nicht im PWA-Modus');
+        }
+      }, 3000);
+    } else if (isIOS && isPWAStandalone) {
+      console.log('✅ PWA-CHECK: iOS PWA-Modus erkannt!');
     }
     
     // BeforeInstallPrompt Event (Chrome/Edge)
@@ -986,6 +1011,99 @@ export default function App() {
                 </Text>
               </TouchableOpacity>
             )}
+            {isWeb && /iPad|iPhone|iPod/.test(navigator.userAgent) && (
+              <TouchableOpacity 
+                style={[styles.debugButton, { backgroundColor: '#FF9500', marginTop: 10 }]}
+                onPress={async () => {
+                  try {
+                    console.log('📱 iOS PWA-VALIDATION: Starte umfassende iOS-Diagnostik...');
+                    
+                    const results = [];
+                    
+                    // iOS-spezifische Erkennung
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+                    
+                    // Multiple PWA Detection
+                    const displayModeStandalone = window.matchMedia('(display-mode: standalone)').matches;
+                    const navigatorStandalone = window.navigator.standalone;
+                    const displayModeBrowser = window.matchMedia('(display-mode: browser)').matches;
+                    
+                    results.push(`🔍 iOS Device: ${isIOS ? 'JA' : 'NEIN'}`);
+                    results.push(`🔍 Safari Browser: ${isSafari ? 'JA' : 'NEIN'}`);
+                    results.push(`🔍 Display Mode Standalone: ${displayModeStandalone ? 'JA' : 'NEIN'}`);
+                    results.push(`🔍 Navigator Standalone: ${navigatorStandalone === true ? 'JA' : navigatorStandalone === false ? 'NEIN' : 'UNDEFINED'}`);
+                    results.push(`🔍 Display Mode Browser: ${displayModeBrowser ? 'JA' : 'NEIN'}`);
+                    
+                    // PWA-Status bestimmen
+                    const isPWAInstalled = displayModeStandalone || navigatorStandalone === true;
+                    results.push(`📱 PWA-Status: ${isPWAInstalled ? '✅ INSTALLIERT' : '❌ NICHT INSTALLIERT'}`);
+                    
+                    // Notification API Check
+                    const notificationSupported = 'Notification' in window;
+                    const notificationPermission = notificationSupported ? Notification.permission : 'not-supported';
+                    results.push(`🔔 Notification API: ${notificationSupported ? 'VERFÜGBAR' : 'NICHT VERFÜGBAR'}`);
+                    results.push(`🔐 Permission: ${notificationPermission}`);
+                    
+                    // Service Worker Check
+                    const swSupported = 'serviceWorker' in navigator;
+                    results.push(`⚙️ Service Worker: ${swSupported ? 'UNTERSTÜTZT' : 'NICHT UNTERSTÜTZT'}`);
+                    results.push(`📊 SW Status: ${serviceWorkerStatus}`);
+                    
+                    // URL und User Agent Info
+                    results.push(`🌐 URL: ${window.location.href}`);
+                    results.push(`📱 User Agent: ${navigator.userAgent.substring(0, 60)}...`);
+                    
+                    console.log('📱 iOS PWA-VALIDATION ERGEBNISSE:', results);
+                    
+                    // Empfehlungen basierend auf Status
+                    let recommendation = '';
+                    if (!isPWAInstalled) {
+                      recommendation = '🚨 AKTION ERFORDERLICH:\n\n1. Safari → Teilen ↗️\n2. "Zum Home-Bildschirm"\n3. Safari SCHLIESSEN\n4. App vom Home-Bildschirm starten';
+                    } else if (notificationPermission === 'default') {
+                      recommendation = '✅ PWA installiert!\n🔔 Permission-Dialog sollte bald kommen...';
+                    } else if (notificationPermission === 'granted') {
+                      recommendation = '🎉 ALLES PERFEKT!\nPWA & Notifications aktiv!';
+                    } else if (notificationPermission === 'denied') {
+                      recommendation = '⚠️ Permission verweigert\nSettings → Safari → Website-Einstellungen';
+                    } else {
+                      recommendation = '❌ Notification API nicht verfügbar\nPWA möglicherweise nicht korrekt installiert';
+                    }
+                    
+                    Alert.alert(
+                      '📱 iOS PWA Diagnose',
+                      results.join('\n') + '\n\n' + recommendation,
+                      [
+                        {
+                          text: 'Debug-Logs anzeigen',
+                          onPress: () => {
+                            console.log('📱 VOLLSTÄNDIGE iOS-DIAGNOSE:');
+                            console.log('window.matchMedia checks:', {
+                              standalone: window.matchMedia('(display-mode: standalone)').matches,
+                              browser: window.matchMedia('(display-mode: browser)').matches,
+                              fullscreen: window.matchMedia('(display-mode: fullscreen)').matches,
+                              'minimal-ui': window.matchMedia('(display-mode: minimal-ui)').matches
+                            });
+                            console.log('window.navigator.standalone:', window.navigator.standalone);
+                            console.log('document.referrer:', document.referrer);
+                            console.log('window.location:', window.location);
+                          }
+                        },
+                        { text: 'OK' }
+                      ]
+                    );
+                    
+                  } catch (error) {
+                    console.error('❌ iOS PWA-Validation Fehler:', error);
+                    Alert.alert('❌ Diagnose-Fehler', error.message);
+                  }
+                }}
+              >
+                <Text style={styles.debugButtonText}>
+                  📱 iOS PWA-CHECK
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Quick Stats */}
@@ -1076,17 +1194,34 @@ export default function App() {
             {/iPad|iPhone|iPod/.test(navigator.userAgent) ? (
               <View style={styles.pwaPromptButtons}>
                 <Text style={styles.iosInstructions}>
-                  🚨 WICHTIG für Benachrichtigungen:{'\n\n'}
-                  1. Tippe auf das Teilen-Symbol ↗️{'\n'}
-                  2. Wähle "Zum Home-Bildschirm"{'\n'}
+                  🚨 WICHTIG für Push-Benachrichtigungen:{'\n\n'}
+                  1. Tippe UNTEN auf Teilen-Symbol ↗️{'\n'}
+                  2. Scrolle nach unten → "Zum Home-Bildschirm"{'\n'}
                   3. Tippe "Hinzufügen"{'\n'}
-                  4. Öffne App vom Home-Bildschirm
+                  4. ✅ App erscheint auf Home-Bildschirm{'\n'}
+                  5. 🚨 WICHTIG: Starte App NUR vom Home-Bildschirm!{'\n\n'}
+                  ❌ Safari schließen nach Installation!
                 </Text>
                 <TouchableOpacity
                   style={[styles.pwaButton, styles.pwaButtonSecondary]}
-                  onPress={() => setShowPWAPrompt(false)}
+                  onPress={() => {
+                    // iOS-spezifische Anleitung vor dem Schließen nochmal betonen
+                    Alert.alert(
+                      '📱 iOS PWA Installation',
+                      'WICHTIGE SCHRITTE:\n\n' +
+                      '1. Safari → Teilen ↗️ → "Zum Home-Bildschirm"\n' +
+                      '2. App wird auf Home-Bildschirm hinzugefügt\n' +
+                      '3. Safari SCHLIESSEN\n' +
+                      '4. App NUR vom Home-Bildschirm öffnen\n\n' +
+                      'Nur dann funktionieren Push-Benachrichtigungen!',
+                      [
+                        { text: 'Verstanden', onPress: () => setShowPWAPrompt(false) },
+                        { text: 'Nochmal zeigen' }
+                      ]
+                    );
+                  }}
                 >
-                  <Text style={styles.pwaButtonTextSecondary}>Später</Text>
+                  <Text style={styles.pwaButtonTextSecondary}>Verstanden</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -1116,7 +1251,7 @@ export default function App() {
         </View>
       )}
 
-      {/* iOS-spezifische Debug Console */}
+      {/* iOS-spezifische Debug Console mit verbesserter Diagnostik */}
       {isWeb && (
         <View style={styles.debugConsole}>
           <Text style={styles.debugTitle}>
@@ -1124,13 +1259,16 @@ export default function App() {
           </Text>
           <Text style={styles.debugText}>SW: {serviceWorkerStatus}</Text>
           <Text style={styles.debugText}>Permission: {typeof Notification !== 'undefined' ? Notification.permission : 'N/A'}</Text>
-          <Text style={styles.debugText}>PWA: {window.matchMedia('(display-mode: standalone)').matches ? 'Installiert' : 'Browser'}</Text>
-          {/iPad|iPhone|iPod/.test(navigator.userAgent) && (
+          {/iPad|iPhone|iPod/.test(navigator.userAgent) ? (
             <>
               <Text style={styles.debugText}>iOS: ✅</Text>
               <Text style={styles.debugText}>Safari: {/^((?!chrome|android).)*safari/i.test(navigator.userAgent) ? '✅' : '❌'}</Text>
-              <Text style={styles.debugText}>Standalone: {window.matchMedia('(display-mode: standalone)').matches ? '✅' : '❌'}</Text>
+              <Text style={styles.debugText}>DisplayMode: {window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'}</Text>
+              <Text style={styles.debugText}>Navigator.standalone: {window.navigator.standalone === true ? 'true' : window.navigator.standalone === false ? 'false' : 'undefined'}</Text>
+              <Text style={styles.debugText}>PWA: {(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) ? 'Installiert ✅' : 'Browser ❌'}</Text>
             </>
+          ) : (
+            <Text style={styles.debugText}>PWA: {window.matchMedia('(display-mode: standalone)').matches ? 'Installiert' : 'Browser'}</Text>
           )}
           <TouchableOpacity
             style={styles.debugRefreshButton}
@@ -1141,9 +1279,9 @@ export default function App() {
           >
             <Text style={styles.debugRefreshText}>🔄 Neu laden</Text>
           </TouchableOpacity>
-          {/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches && (
+          {/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) && (
             <View style={styles.iosWarning}>
-              <Text style={styles.iosWarningText}>⚠️ Installiere als PWA für Push!</Text>
+              <Text style={styles.iosWarningText}>⚠️ Start vom Home-Bildschirm!</Text>
             </View>
           )}
         </View>
