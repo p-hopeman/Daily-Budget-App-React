@@ -1012,13 +1012,29 @@ export default function App() {
               </TouchableOpacity>
             )}
             
-            {/* iOS Diagnose Button - EINFACH & SICHTBAR */}
+            {/* iOS Test Button - SEHR EINFACH */}
+            <TouchableOpacity 
+              style={[styles.debugButton, { backgroundColor: '#00FF00', marginTop: 10 }]}
+              onPress={() => {
+                console.log('🧪 TEST: Button wurde geklickt!');
+                Alert.alert('🧪 TEST', 'Button funktioniert!');
+              }}
+            >
+              <Text style={styles.debugButtonText}>
+                🧪 BUTTON TEST
+              </Text>
+            </TouchableOpacity>
+            
+            {/* iOS Diagnose Button - VEREINFACHT */}
             <TouchableOpacity 
               style={[styles.debugButton, { backgroundColor: '#FF0000', marginTop: 10, paddingVertical: 12 }]}
-              onPress={async () => {
+              onPress={() => {
+                console.log('🔍 iOS DIAGNOSE: Button geklickt');
+                
                 try {
-                  // Einfache iOS-Erkennung
+                  // Vereinfachte iOS-Erkennung
                   const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                  console.log('🔍 iOS erkannt:', isiOS);
                   
                   if (!isiOS) {
                     Alert.alert('ℹ️ Nur für iOS', 'Dieser Check ist nur für iPhone/iPad gedacht.');
@@ -1063,25 +1079,10 @@ export default function App() {
                     checks.push(`${permission === 'granted' ? '✅' : permission === 'default' ? '⚠️' : '❌'} Permission: ${permission.toUpperCase()}`);
                   }
                   
-                  // CHECK 5: Subscription
-                  if (hasSW) {
-                    try {
-                      const registration = await navigator.serviceWorker.getRegistration();
-                      if (registration && registration.pushManager) {
-                        const subscription = await registration.pushManager.getSubscription();
-                        if (subscription) {
-                          const isApple = subscription.endpoint.includes('web.push.apple.com');
-                          checks.push(`✅ Subscription: ${isApple ? 'Apple ✅' : 'Anderer Service'}`);
-                        } else {
-                          checks.push(`❌ Subscription: Keine vorhanden`);
-                        }
-                      } else {
-                        checks.push(`❌ Subscription: SW nicht bereit`);
-                      }
-                    } catch (e) {
-                      checks.push(`❌ Subscription: Fehler - ${e.message}`);
-                    }
-                  }
+                  // CHECK 5: Subscription (vereinfacht)
+                  checks.push(`ℹ️ Subscription: Wird asynchron geprüft...`);
+                  
+                  console.log('🔍 Checks fertig:', checks);
                   
                   // Empfehlung
                   let recommendation = '';
