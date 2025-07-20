@@ -94,6 +94,29 @@ export default function App() {
                 { requireInteraction: true }
               );
             }, 2000);
+          } else if (permissionStatus === 'default') {
+            // 🔔 AUTO-SETUP: Automatische Permission-Request (basierend auf Schritt 2 Learning)
+            console.log('🔔 AUTO-SETUP: Frage automatisch nach Notification-Permission...');
+            setTimeout(async () => {
+              try {
+                const permission = await Notification.requestPermission();
+                console.log('🔔 AUTO-SETUP: Permission erhalten:', permission);
+                
+                if (permission === 'granted') {
+                  console.log('✅ AUTO-SETUP: Notifications automatisch aktiviert!');
+                  // Sende Willkommens-Notification
+                  const notification = new Notification('🎉 Willkommen!', {
+                    body: 'Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates.',
+                    icon: '/favicon.ico',
+                    requireInteraction: true
+                  });
+                } else {
+                  console.log('❌ AUTO-SETUP: Permission verweigert');
+                }
+              } catch (error) {
+                console.error('🔔 AUTO-SETUP Fehler:', error);
+              }
+            }, 3000); // Nach 3 Sekunden automatisch fragen
           } else {
             console.log('Web Notifications noch nicht aktiviert. Tippe auf 🔔 zum Aktivieren.');
           }
