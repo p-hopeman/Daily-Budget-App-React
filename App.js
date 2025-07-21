@@ -424,9 +424,139 @@ export default function App() {
             <Text style={styles.mainAmount}>{formatCurrency(dailyBudget)}</Text>
             <Text style={styles.subtitle}>Tagesbudget</Text>
             {isWeb && (
-              <Text style={styles.notificationHint}>
-                💡 Tippe auf 🔔 für Benachrichtigungen
-              </Text>
+              <View style={styles.notificationContainer}>
+                <Text style={styles.notificationHint}>
+                  💡 Tippe auf 🔔 für Benachrichtigungen
+                </Text>
+                
+                {/* 🔧 SCHRITT 2: SAFARI Button */}
+                <TouchableOpacity 
+                  style={styles.safariButton}
+                  onPress={async () => {
+                    console.log('🔧 SCHRITT 2: SAFARI Test startet...');
+                    
+                    try {
+                      // 1. Service Worker Registration prüfen/registrieren
+                      if ('serviceWorker' in navigator) {
+                        console.log('🔧 Service Worker unterstützt');
+                        
+                        let registration;
+                        try {
+                          registration = await navigator.serviceWorker.register('/sw.js');
+                          console.log('🔧 Service Worker registriert:', registration);
+                        } catch (swError) {
+                          console.error('🔧 Service Worker Registration Fehler:', swError);
+                          Alert.alert('❌ Service Worker Fehler', swError.message);
+                          return;
+                        }
+                        
+                        // 2. Permission-Handling
+                        if ('Notification' in window) {
+                          console.log('🔧 Notification API verfügbar');
+                          
+                          let permission = Notification.permission;
+                          console.log('🔧 Aktuelle Permission:', permission);
+                          
+                          if (permission === 'default') {
+                            console.log('🔧 Fordere Permission an...');
+                            permission = await Notification.requestPermission();
+                            console.log('🔧 Neue Permission:', permission);
+                          }
+                          
+                          if (permission === 'granted') {
+                            console.log('✅ Permission erteilt, starte Push-Subscription Test...');
+                            
+                            // 3. Push-Subscription Test mit Safari/Chrome Endpoint-Erkennung
+                            try {
+                              if ('PushManager' in window) {
+                                console.log('🔧 PushManager verfügbar');
+                                
+                                // Prüfe bestehende Subscription
+                                let subscription = await registration.pushManager.getSubscription();
+                                console.log('🔧 Bestehende Subscription:', subscription);
+                                
+                                if (!subscription) {
+                                  console.log('🔧 Erstelle neue Push-Subscription...');
+                                  
+                                  // VAPID Public Key (sollte von Server kommen, hier Demo-Key)
+                                  const vapidPublicKey = 'BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9flJ_ZJnUP-xwAEFMhD6-g9J9Pb0Vd2pfIcKxElR9LmJIgKVFXUE';
+                                  
+                                  try {
+                                    subscription = await registration.pushManager.subscribe({
+                                      userVisibleOnly: true,
+                                      applicationServerKey: vapidPublicKey
+                                    });
+                                    console.log('🔧 Neue Subscription erstellt:', subscription);
+                                  } catch (subError) {
+                                    console.error('🔧 Subscription Fehler:', subError);
+                                    Alert.alert('❌ Push-Subscription Fehler', subError.message);
+                                    return;
+                                  }
+                                }
+                                
+                                // 4. Endpoint-Erkennung (Safari vs Chrome)
+                                const endpoint = subscription.endpoint;
+                                console.log('🔧 Push Endpoint:', endpoint);
+                                
+                                let provider = 'unbekannt';
+                                if (endpoint.includes('fcm.googleapis.com')) {
+                                  provider = 'Chrome/Firebase';
+                                } else if (endpoint.includes('web.push.apple.com')) {
+                                  provider = 'Safari/Apple';
+                                } else if (endpoint.includes('mozilla.com')) {
+                                  provider = 'Firefox';
+                                }
+                                
+                                console.log('🔧 Push Provider erkannt:', provider);
+                                
+                                // 5. Test-Notification senden
+                                const testNotification = new Notification('🔧 SCHRITT 2 ERFOLG!', {
+                                  body: `Push-Subscription aktiv!\\nProvider: ${provider}\\nEndpoint verfügbar ✅`,
+                                  icon: '/favicon.ico',
+                                  requireInteraction: true,
+                                  tag: 'schritt-2-test'
+                                });
+                                
+                                testNotification.onclick = () => {
+                                  console.log('🔧 Test-Notification geklickt');
+                                  testNotification.close();
+                                };
+                                
+                                // Erfolgsmeldung
+                                Alert.alert(
+                                  '✅ SCHRITT 2 ERFOLGREICH!', 
+                                  `Service Worker: ✅ Registriert\\nPermission: ✅ ${permission}\\nPush-Subscription: ✅ Aktiv\\nProvider: ${provider}\\n\\n🎉 Safari Push Notifications sind jetzt funktionsbereit!`,
+                                  [{ text: 'Perfekt!' }]
+                                );
+                                
+                              } else {
+                                console.error('🔧 PushManager nicht verfügbar');
+                                Alert.alert('❌ Push nicht unterstützt', 'PushManager ist in diesem Browser nicht verfügbar.');
+                              }
+                            } catch (pushError) {
+                              console.error('🔧 Push-Test Fehler:', pushError);
+                              Alert.alert('❌ Push-Test Fehler', pushError.message);
+                            }
+                          } else {
+                            Alert.alert('❌ Permission verweigert', `Notification Permission: ${permission}\\n\\nBitte erlaube Benachrichtigungen in den Browser-Einstellungen.`);
+                          }
+                        } else {
+                          Alert.alert('❌ Nicht unterstützt', 'Notification API ist nicht verfügbar.');
+                        }
+                      } else {
+                        Alert.alert('❌ Nicht unterstützt', 'Service Worker sind nicht verfügbar.');
+                      }
+                    } catch (error) {
+                      console.error('🔧 SCHRITT 2 Gesamtfehler:', error);
+                      Alert.alert('❌ SCHRITT 2 Fehler', error.message);
+                    }
+                  }}
+                >
+                  <Text style={styles.safariButtonText}>
+                    🔧 SCHRITT 2: SAFARI
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
 
@@ -656,6 +786,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#FF6B6B',
     marginTop: 8,
+    textAlign: 'center',
+  },
+  notificationContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  safariButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 8,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  safariButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
   },
   statsRow: {
