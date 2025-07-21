@@ -59,6 +59,64 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // 🕘 AUTOMATISCHE TÄGLICHE BENACHRICHTIGUNGEN: 9:00 und 20:00 Uhr
+  useEffect(() => {
+    if (Platform.OS === 'web' && 'Notification' in window && Notification.permission === 'granted') {
+      console.log('🕘 Setze automatische tägliche Benachrichtigungen (9:00 & 20:00)...');
+      
+      // Prüfe jede Minute, ob es Zeit für eine Benachrichtigung ist
+      const notificationInterval = setInterval(() => {
+        const now = new Date();
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        
+        // 9:00 Uhr morgens oder 20:00 Uhr abends (bei Minute 0, damit nur einmal pro Stunde)
+        if (minute === 0 && (hour === 9 || hour === 20)) {
+          console.log(`🕘 Zeit für tägliche Benachrichtigung: ${hour}:00`);
+          
+          // Prüfe, ob heute schon eine Benachrichtigung für diese Uhrzeit gesendet wurde
+          const today = now.toDateString();
+          const notificationKey = `daily-notification-${today}-${hour}`;
+          const alreadySent = localStorage.getItem(notificationKey);
+          
+          if (!alreadySent) {
+            console.log(`🕘 Sende tägliche Budget-Benachrichtigung für ${hour}:00`);
+            
+            const timeText = hour === 9 ? 'Guten Morgen!' : 'Guten Abend!';
+            const emoji = hour === 9 ? '🌅' : '🌆';
+            
+            const notification = new Notification(`${emoji} ${timeText}`, {
+              body: `Dein aktuelles Tagesbudget: ${formatCurrency(dailyBudget)}\nVerbleibendes Budget: ${formatCurrency(remainingBudget)}\nNoch ${remainingDays} Tage im Monat`,
+              icon: '/favicon.ico',
+              requireInteraction: false,
+              tag: `daily-budget-${hour}`
+            });
+            
+            notification.onclick = () => {
+              console.log('🕘 Tägliche Benachrichtigung geklickt');
+              notification.close();
+              // Optional: App in den Vordergrund bringen
+              if (window.focus) window.focus();
+            };
+            
+            // Markiere als gesendet für heute
+            localStorage.setItem(notificationKey, 'sent');
+            console.log(`✅ Tägliche Benachrichtigung für ${hour}:00 gesendet und markiert`);
+          } else {
+            console.log(`⏭️ Tägliche Benachrichtigung für ${hour}:00 heute bereits gesendet`);
+          }
+        }
+      }, 60000); // Prüfe jede Minute
+      
+      console.log('✅ Automatische tägliche Benachrichtigungen aktiviert (9:00 & 20:00)');
+      
+      return () => {
+        clearInterval(notificationInterval);
+        console.log('🛑 Automatische tägliche Benachrichtigungen deaktiviert');
+      };
+    }
+  }, [dailyBudget, remainingBudget, remainingDays]); // Re-run wenn sich Budget-Werte ändern
+
   // 🎯 ONBOARDING: Prüfe ersten Besuch
   const checkFirstVisit = () => {
     if (Platform.OS === 'web') {
@@ -509,56 +567,7 @@ export default function App() {
             <Text style={styles.statusText}>VERFÜGBAR</Text>
             <Text style={styles.mainAmount}>{formatCurrency(dailyBudget)}</Text>
             <Text style={styles.subtitle}>Tagesbudget</Text>
-            {isWeb && (
-              <View style={styles.notificationContainer}>
-                <Text style={styles.notificationHint}>
-                  💡 Tippe auf 🔔 für Benachrichtigungen
-                </Text>
-                
-                {/* 🔧 SCHRITT 2: SAFARI Button */}
-                <TouchableOpacity 
-                  style={styles.safariButton}
-                  onPress={() => {
-                    console.log('🔧 SCHRITT 2: SAFARI Test startet...');
-                    
-                    // EINFACHER DIREKTER TEST (ohne async/await Probleme)
-                    if ('Notification' in window) {
-                      if (Notification.permission === 'default') {
-                        Notification.requestPermission().then(permission => {
-                          console.log('🔧 Permission:', permission);
-                          if (permission === 'granted') {
-                            const notification = new Notification('🔧 SCHRITT 2 TEST!', {
-                              body: 'Einfacher Test funktioniert!',
-                              icon: '/favicon.ico'
-                            });
-                            Alert.alert('✅ ERFOLG!', 'Schritt 2 Safari Button funktioniert!');
-                          } else {
-                            Alert.alert('❌ Permission verweigert', permission);
-                          }
-                        }).catch(error => {
-                          console.error('🔧 Permission Fehler:', error);
-                          Alert.alert('❌ Fehler', error.message);
-                        });
-                      } else if (Notification.permission === 'granted') {
-                        const notification = new Notification('🔧 SCHRITT 2 TEST!', {
-                          body: 'Bereits berechtigt - Test funktioniert!',
-                          icon: '/favicon.ico'
-                        });
-                        Alert.alert('✅ BEREITS AKTIV!', 'Schritt 2 Safari Button funktioniert!');
-                      } else {
-                        Alert.alert('❌ Blockiert', 'Benachrichtigungen sind blockiert');
-                      }
-                    } else {
-                      Alert.alert('❌ Nicht unterstützt', 'Notifications nicht verfügbar');
-                    }
-                  }}
-                >
-                  <Text style={styles.safariButtonText}>
-                    🔧 SCHRITT 2: SAFARI
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+
           </View>
 
           {/* Quick Stats */}
@@ -896,35 +905,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#4a4a4a',
   },
-  notificationHint: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FF6B6B',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  notificationContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  safariButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginTop: 8,
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  safariButtonText: {
-    color: 'white',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 24,
