@@ -85,9 +85,9 @@ export default function App() {
             const timeText = hour === 9 ? 'Guten Morgen!' : 'Guten Abend!';
             const emoji = hour === 9 ? '🌅' : '🌆';
             
-            const notification = new Notification(`${emoji} ${timeText}`, {
+            const notification = new Notification(`💸 ${timeText}`, {
               body: `Dein aktuelles Tagesbudget: ${formatCurrency(dailyBudget)}\nVerbleibendes Budget: ${formatCurrency(remainingBudget)}\nNoch ${remainingDays} Tage im Monat`,
-              icon: '/favicon.ico',
+              icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+',
               requireInteraction: false,
               tag: `daily-budget-${hour}`
             });
@@ -165,10 +165,10 @@ export default function App() {
           Notification.requestPermission().then(permission => {
             console.log('🎯 ONBOARDING Permission:', permission);
             if (permission === 'granted') {
-              const notification = new Notification('🎉 Perfekt!', {
-                body: 'Daily Budget App ist bereit! Du erhältst jetzt Budget-Updates.',
-                icon: '/favicon.ico'
-              });
+                          const notification = new Notification('💸 Perfekt!', {
+              body: 'Daily Budget App ist bereit! Du erhältst jetzt Budget-Updates.',
+              icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+'
+            });
               console.log('✅ Onboarding Notifications erfolgreich aktiviert!');
               resolve(true);
             } else {
@@ -181,9 +181,9 @@ export default function App() {
             resolve(false);
           });
         } else if (Notification.permission === 'granted') {
-          const notification = new Notification('🎉 Bereits aktiv!', {
+          const notification = new Notification('💸 Bereits aktiv!', {
             body: 'Benachrichtigungen sind bereits aktiviert!',
-            icon: '/favicon.ico'
+            icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+'
           });
           console.log('✅ Onboarding Notifications bereits aktiv!');
           resolve(true);
@@ -249,9 +249,9 @@ export default function App() {
                 if (permission === 'granted') {
                   console.log('✅ AUTO-SETUP: Notifications automatisch aktiviert!');
                   // Sende Willkommens-Notification
-                  const notification = new Notification('🎉 Willkommen!', {
+                  const notification = new Notification('💸 Willkommen!', {
                     body: 'Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates.',
-                    icon: '/favicon.ico',
+                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+',
                     requireInteraction: true
                   });
                 } else {
@@ -523,9 +523,9 @@ export default function App() {
                                 
                                 if (permission === 'granted') {
                                   console.log('Sende Test-Notification...');
-                                  const notification = new Notification('🎉 Test erfolgreich!', {
+                                  const notification = new Notification('💸 Test erfolgreich!', {
                                     body: 'Benachrichtigungen funktionieren jetzt!',
-                                    icon: '/favicon.ico'
+                                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+'
                                   });
                                   Alert.alert('✅ Erfolgreich', 'Benachrichtigungen sind aktiv!');
                                 } else {
@@ -533,9 +533,9 @@ export default function App() {
                                 }
                               } else if (Notification.permission === 'granted') {
                                 console.log('Sende Test-Notification...');
-                                const notification = new Notification('🎉 Test erfolgreich!', {
+                                const notification = new Notification('💸 Test erfolgreich!', {
                                   body: 'Benachrichtigungen funktionieren bereits!',
-                                  icon: '/favicon.ico'
+                                  icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+'
                                 });
                                 Alert.alert('✅ Bereits aktiv', 'Benachrichtigungen sind bereits aktiv!');
                               } else {
