@@ -97,110 +97,47 @@ export default function App() {
     markAsVisited();
   };
 
-  // 🎯 ONBOARDING: Schritt 2 Notifications aktivieren (verwendet denselben Mechanismus)
-  const activateNotificationsOnboarding = async () => {
-    console.log('🎯 ONBOARDING: Aktiviere Notifications mit Schritt 2 Mechanismus...');
+  // 🎯 ONBOARDING: Schritt 2 Notifications aktivieren (EINFACHE VERSION)
+  const activateNotificationsOnboarding = () => {
+    console.log('🎯 ONBOARDING: Aktiviere Notifications...');
     
-    try {
-      // 1. Service Worker Registration prüfen/registrieren
-      if ('serviceWorker' in navigator) {
-        console.log('🎯 Service Worker unterstützt');
-        
-        let registration;
-        try {
-          registration = await navigator.serviceWorker.register('/sw.js');
-          console.log('🎯 Service Worker registriert:', registration);
-        } catch (swError) {
-          console.error('🎯 Service Worker Registration Fehler:', swError);
-          Alert.alert('❌ Setup Fehler', 'Service Worker konnte nicht registriert werden.');
-          return false;
-        }
-        
-        // 2. Permission-Handling
-        if ('Notification' in window) {
-          console.log('🎯 Notification API verfügbar');
-          
-          let permission = Notification.permission;
-          console.log('🎯 Aktuelle Permission:', permission);
-          
-          if (permission === 'default') {
-            console.log('🎯 Fordere Permission an...');
-            permission = await Notification.requestPermission();
-            console.log('🎯 Neue Permission:', permission);
-          }
-          
-          if (permission === 'granted') {
-            console.log('✅ Permission erteilt, erstelle Push-Subscription...');
-            
-            // 3. Push-Subscription mit VAPID-Key
-            try {
-              if ('PushManager' in window) {
-                console.log('🎯 PushManager verfügbar');
-                
-                let subscription = await registration.pushManager.getSubscription();
-                console.log('🎯 Bestehende Subscription:', subscription);
-                
-                if (!subscription) {
-                  console.log('🎯 Erstelle neue Push-Subscription...');
-                  
-                  const vapidPublicKey = 'BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9flJ_ZJnUP-xwAEFMhD6-g9J9Pb0Vd2pfIcKxElR9LmJIgKVFXUE';
-                  
-                  try {
-                    subscription = await registration.pushManager.subscribe({
-                      userVisibleOnly: true,
-                      applicationServerKey: vapidPublicKey
-                    });
-                    console.log('🎯 Neue Subscription erstellt:', subscription);
-                  } catch (subError) {
-                    console.error('🎯 Subscription Fehler:', subError);
-                    Alert.alert('❌ Push-Setup Fehler', 'Push-Subscription konnte nicht erstellt werden.');
-                    return false;
-                  }
-                }
-                
-                // 4. Willkommens-Notification
-                const welcomeNotification = new Notification('🎉 Perfekt!', {
-                  body: 'Daily Budget App ist bereit! Du erhältst jetzt Budget-Updates.',
-                  icon: '/favicon.ico',
-                  requireInteraction: true,
-                  tag: 'onboarding-success'
-                });
-                
-                welcomeNotification.onclick = () => {
-                  console.log('🎯 Willkommens-Notification geklickt');
-                  welcomeNotification.close();
-                };
-                
-                console.log('✅ Onboarding Notifications erfolgreich aktiviert!');
-                return true;
-                
-              } else {
-                console.error('🎯 PushManager nicht verfügbar');
-                Alert.alert('❌ Nicht unterstützt', 'Push-Notifications werden nicht unterstützt.');
-                return false;
-              }
-            } catch (pushError) {
-              console.error('🎯 Push-Setup Fehler:', pushError);
-              Alert.alert('❌ Push-Fehler', 'Push-Notifications konnten nicht eingerichtet werden.');
-              return false;
+    return new Promise((resolve) => {
+      if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then(permission => {
+            console.log('🎯 ONBOARDING Permission:', permission);
+            if (permission === 'granted') {
+              const notification = new Notification('🎉 Perfekt!', {
+                body: 'Daily Budget App ist bereit! Du erhältst jetzt Budget-Updates.',
+                icon: '/favicon.ico'
+              });
+              console.log('✅ Onboarding Notifications erfolgreich aktiviert!');
+              resolve(true);
+            } else {
+              Alert.alert('❌ Berechtigung erforderlich', 'Benachrichtigungen sind für die beste Erfahrung erforderlich.');
+              resolve(false);
             }
-          } else {
-            Alert.alert('❌ Berechtigung erforderlich', 'Benachrichtigungen sind für die beste Erfahrung erforderlich.');
-            return false;
-          }
+          }).catch(error => {
+            console.error('🎯 ONBOARDING Permission Fehler:', error);
+            Alert.alert('❌ Fehler', 'Berechtigung konnte nicht angefragt werden.');
+            resolve(false);
+          });
+        } else if (Notification.permission === 'granted') {
+          const notification = new Notification('🎉 Bereits aktiv!', {
+            body: 'Benachrichtigungen sind bereits aktiviert!',
+            icon: '/favicon.ico'
+          });
+          console.log('✅ Onboarding Notifications bereits aktiv!');
+          resolve(true);
         } else {
-          Alert.alert('❌ Nicht unterstützt', 'Benachrichtigungen werden nicht unterstützt.');
-          return false;
+          Alert.alert('❌ Blockiert', 'Benachrichtigungen sind blockiert. Aktiviere sie in den Browser-Einstellungen.');
+          resolve(false);
         }
       } else {
-        Alert.alert('❌ Nicht unterstützt', 'Service Worker werden nicht unterstützt.');
-        return false;
+        Alert.alert('❌ Nicht unterstützt', 'Benachrichtigungen werden nicht unterstützt.');
+        resolve(false);
       }
-    } catch (error) {
-      console.error('🎯 ONBOARDING Notifications Fehler:', error);
-      Alert.alert('❌ Setup Fehler', 'Ein unerwarteter Fehler ist aufgetreten.');
-      return false;
-    }
+    });
   };
 
   // Initialisiere Notification-System (plattform-spezifisch)
@@ -581,123 +518,38 @@ export default function App() {
                 {/* 🔧 SCHRITT 2: SAFARI Button */}
                 <TouchableOpacity 
                   style={styles.safariButton}
-                  onPress={async () => {
+                  onPress={() => {
                     console.log('🔧 SCHRITT 2: SAFARI Test startet...');
                     
-                    try {
-                      // 1. Service Worker Registration prüfen/registrieren
-                      if ('serviceWorker' in navigator) {
-                        console.log('🔧 Service Worker unterstützt');
-                        
-                        let registration;
-                        try {
-                          registration = await navigator.serviceWorker.register('/sw.js');
-                          console.log('🔧 Service Worker registriert:', registration);
-                        } catch (swError) {
-                          console.error('🔧 Service Worker Registration Fehler:', swError);
-                          Alert.alert('❌ Service Worker Fehler', swError.message);
-                          return;
-                        }
-                        
-                        // 2. Permission-Handling
-                        if ('Notification' in window) {
-                          console.log('🔧 Notification API verfügbar');
-                          
-                          let permission = Notification.permission;
-                          console.log('🔧 Aktuelle Permission:', permission);
-                          
-                          if (permission === 'default') {
-                            console.log('🔧 Fordere Permission an...');
-                            permission = await Notification.requestPermission();
-                            console.log('🔧 Neue Permission:', permission);
-                          }
-                          
+                    // EINFACHER DIREKTER TEST (ohne async/await Probleme)
+                    if ('Notification' in window) {
+                      if (Notification.permission === 'default') {
+                        Notification.requestPermission().then(permission => {
+                          console.log('🔧 Permission:', permission);
                           if (permission === 'granted') {
-                            console.log('✅ Permission erteilt, starte Push-Subscription Test...');
-                            
-                            // 3. Push-Subscription Test mit Safari/Chrome Endpoint-Erkennung
-                            try {
-                              if ('PushManager' in window) {
-                                console.log('🔧 PushManager verfügbar');
-                                
-                                // Prüfe bestehende Subscription
-                                let subscription = await registration.pushManager.getSubscription();
-                                console.log('🔧 Bestehende Subscription:', subscription);
-                                
-                                if (!subscription) {
-                                  console.log('🔧 Erstelle neue Push-Subscription...');
-                                  
-                                  // VAPID Public Key (sollte von Server kommen, hier Demo-Key)
-                                  const vapidPublicKey = 'BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9flJ_ZJnUP-xwAEFMhD6-g9J9Pb0Vd2pfIcKxElR9LmJIgKVFXUE';
-                                  
-                                  try {
-                                    subscription = await registration.pushManager.subscribe({
-                                      userVisibleOnly: true,
-                                      applicationServerKey: vapidPublicKey
-                                    });
-                                    console.log('🔧 Neue Subscription erstellt:', subscription);
-                                  } catch (subError) {
-                                    console.error('🔧 Subscription Fehler:', subError);
-                                    Alert.alert('❌ Push-Subscription Fehler', subError.message);
-                                    return;
-                                  }
-                                }
-                                
-                                // 4. Endpoint-Erkennung (Safari vs Chrome)
-                                const endpoint = subscription.endpoint;
-                                console.log('🔧 Push Endpoint:', endpoint);
-                                
-                                let provider = 'unbekannt';
-                                if (endpoint.includes('fcm.googleapis.com')) {
-                                  provider = 'Chrome/Firebase';
-                                } else if (endpoint.includes('web.push.apple.com')) {
-                                  provider = 'Safari/Apple';
-                                } else if (endpoint.includes('mozilla.com')) {
-                                  provider = 'Firefox';
-                                }
-                                
-                                console.log('🔧 Push Provider erkannt:', provider);
-                                
-                                // 5. Test-Notification senden
-                                const testNotification = new Notification('🔧 SCHRITT 2 ERFOLG!', {
-                                  body: `Push-Subscription aktiv!\\nProvider: ${provider}\\nEndpoint verfügbar ✅`,
-                                  icon: '/favicon.ico',
-                                  requireInteraction: true,
-                                  tag: 'schritt-2-test'
-                                });
-                                
-                                testNotification.onclick = () => {
-                                  console.log('🔧 Test-Notification geklickt');
-                                  testNotification.close();
-                                };
-                                
-                                // Erfolgsmeldung
-                                Alert.alert(
-                                  '✅ SCHRITT 2 ERFOLGREICH!', 
-                                  `Service Worker: ✅ Registriert\\nPermission: ✅ ${permission}\\nPush-Subscription: ✅ Aktiv\\nProvider: ${provider}\\n\\n🎉 Safari Push Notifications sind jetzt funktionsbereit!`,
-                                  [{ text: 'Perfekt!' }]
-                                );
-                                
-                              } else {
-                                console.error('🔧 PushManager nicht verfügbar');
-                                Alert.alert('❌ Push nicht unterstützt', 'PushManager ist in diesem Browser nicht verfügbar.');
-                              }
-                            } catch (pushError) {
-                              console.error('🔧 Push-Test Fehler:', pushError);
-                              Alert.alert('❌ Push-Test Fehler', pushError.message);
-                            }
+                            const notification = new Notification('🔧 SCHRITT 2 TEST!', {
+                              body: 'Einfacher Test funktioniert!',
+                              icon: '/favicon.ico'
+                            });
+                            Alert.alert('✅ ERFOLG!', 'Schritt 2 Safari Button funktioniert!');
                           } else {
-                            Alert.alert('❌ Permission verweigert', `Notification Permission: ${permission}\\n\\nBitte erlaube Benachrichtigungen in den Browser-Einstellungen.`);
+                            Alert.alert('❌ Permission verweigert', permission);
                           }
-                        } else {
-                          Alert.alert('❌ Nicht unterstützt', 'Notification API ist nicht verfügbar.');
-                        }
+                        }).catch(error => {
+                          console.error('🔧 Permission Fehler:', error);
+                          Alert.alert('❌ Fehler', error.message);
+                        });
+                      } else if (Notification.permission === 'granted') {
+                        const notification = new Notification('🔧 SCHRITT 2 TEST!', {
+                          body: 'Bereits berechtigt - Test funktioniert!',
+                          icon: '/favicon.ico'
+                        });
+                        Alert.alert('✅ BEREITS AKTIV!', 'Schritt 2 Safari Button funktioniert!');
                       } else {
-                        Alert.alert('❌ Nicht unterstützt', 'Service Worker sind nicht verfügbar.');
+                        Alert.alert('❌ Blockiert', 'Benachrichtigungen sind blockiert');
                       }
-                    } catch (error) {
-                      console.error('🔧 SCHRITT 2 Gesamtfehler:', error);
-                      Alert.alert('❌ SCHRITT 2 Fehler', error.message);
+                    } else {
+                      Alert.alert('❌ Nicht unterstützt', 'Notifications nicht verfügbar');
                     }
                   }}
                 >
@@ -918,11 +770,12 @@ export default function App() {
                   </Text>
                   <TouchableOpacity 
                     style={styles.onboardingButtonPrimary}
-                    onPress={async () => {
-                      const success = await activateNotificationsOnboarding();
-                      if (success) {
-                        setOnboardingStep(3);
-                      }
+                    onPress={() => {
+                      activateNotificationsOnboarding().then(success => {
+                        if (success) {
+                          setOnboardingStep(3);
+                        }
+                      });
                     }}
                   >
                     <Text style={styles.onboardingButtonTextPrimary}>
