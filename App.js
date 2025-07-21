@@ -38,12 +38,17 @@ export default function App() {
   const [transactionDescription, setTransactionDescription] = useState('');
   const [isDeposit, setIsDeposit] = useState(true);
   const [showingSettings, setShowingSettings] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(1);
 
   // Lade Daten beim App-Start und initialisiere Notifications
   useEffect(() => {
     loadData();
     calculateRemainingDays();
     initializeNotifications();
+    
+    // 🎯 ONBOARDING: Prüfe ersten Besuch
+    checkFirstVisit();
     
     // Timer für tägliche Aktualisierung
     const interval = setInterval(() => {
@@ -53,6 +58,150 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // 🎯 ONBOARDING: Prüfe ersten Besuch
+  const checkFirstVisit = () => {
+    if (Platform.OS === 'web') {
+      try {
+        const hasVisited = localStorage.getItem('daily-budget-app-visited');
+        console.log('🎯 ONBOARDING: Erster Besuch Check:', hasVisited);
+        
+        if (!hasVisited) {
+          console.log('🎯 ONBOARDING: Erster Besuch erkannt - zeige Onboarding');
+          // Kurz warten damit App geladen ist
+          setTimeout(() => {
+            setShowOnboarding(true);
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('🎯 ONBOARDING: localStorage Fehler:', error);
+      }
+    }
+  };
+
+  // 🎯 ONBOARDING: Als besucht markieren
+  const markAsVisited = () => {
+    if (Platform.OS === 'web') {
+      try {
+        localStorage.setItem('daily-budget-app-visited', 'true');
+        console.log('🎯 ONBOARDING: Als besucht markiert');
+      } catch (error) {
+        console.error('🎯 ONBOARDING: localStorage Fehler:', error);
+      }
+    }
+  };
+
+  // 🎯 ONBOARDING: Schließen
+  const closeOnboarding = () => {
+    setShowOnboarding(false);
+    markAsVisited();
+  };
+
+  // 🎯 ONBOARDING: Schritt 2 Notifications aktivieren (verwendet denselben Mechanismus)
+  const activateNotificationsOnboarding = async () => {
+    console.log('🎯 ONBOARDING: Aktiviere Notifications mit Schritt 2 Mechanismus...');
+    
+    try {
+      // 1. Service Worker Registration prüfen/registrieren
+      if ('serviceWorker' in navigator) {
+        console.log('🎯 Service Worker unterstützt');
+        
+        let registration;
+        try {
+          registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('🎯 Service Worker registriert:', registration);
+        } catch (swError) {
+          console.error('🎯 Service Worker Registration Fehler:', swError);
+          Alert.alert('❌ Setup Fehler', 'Service Worker konnte nicht registriert werden.');
+          return false;
+        }
+        
+        // 2. Permission-Handling
+        if ('Notification' in window) {
+          console.log('🎯 Notification API verfügbar');
+          
+          let permission = Notification.permission;
+          console.log('🎯 Aktuelle Permission:', permission);
+          
+          if (permission === 'default') {
+            console.log('🎯 Fordere Permission an...');
+            permission = await Notification.requestPermission();
+            console.log('🎯 Neue Permission:', permission);
+          }
+          
+          if (permission === 'granted') {
+            console.log('✅ Permission erteilt, erstelle Push-Subscription...');
+            
+            // 3. Push-Subscription mit VAPID-Key
+            try {
+              if ('PushManager' in window) {
+                console.log('🎯 PushManager verfügbar');
+                
+                let subscription = await registration.pushManager.getSubscription();
+                console.log('🎯 Bestehende Subscription:', subscription);
+                
+                if (!subscription) {
+                  console.log('🎯 Erstelle neue Push-Subscription...');
+                  
+                  const vapidPublicKey = 'BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9flJ_ZJnUP-xwAEFMhD6-g9J9Pb0Vd2pfIcKxElR9LmJIgKVFXUE';
+                  
+                  try {
+                    subscription = await registration.pushManager.subscribe({
+                      userVisibleOnly: true,
+                      applicationServerKey: vapidPublicKey
+                    });
+                    console.log('🎯 Neue Subscription erstellt:', subscription);
+                  } catch (subError) {
+                    console.error('🎯 Subscription Fehler:', subError);
+                    Alert.alert('❌ Push-Setup Fehler', 'Push-Subscription konnte nicht erstellt werden.');
+                    return false;
+                  }
+                }
+                
+                // 4. Willkommens-Notification
+                const welcomeNotification = new Notification('🎉 Perfekt!', {
+                  body: 'Daily Budget App ist bereit! Du erhältst jetzt Budget-Updates.',
+                  icon: '/favicon.ico',
+                  requireInteraction: true,
+                  tag: 'onboarding-success'
+                });
+                
+                welcomeNotification.onclick = () => {
+                  console.log('🎯 Willkommens-Notification geklickt');
+                  welcomeNotification.close();
+                };
+                
+                console.log('✅ Onboarding Notifications erfolgreich aktiviert!');
+                return true;
+                
+              } else {
+                console.error('🎯 PushManager nicht verfügbar');
+                Alert.alert('❌ Nicht unterstützt', 'Push-Notifications werden nicht unterstützt.');
+                return false;
+              }
+            } catch (pushError) {
+              console.error('🎯 Push-Setup Fehler:', pushError);
+              Alert.alert('❌ Push-Fehler', 'Push-Notifications konnten nicht eingerichtet werden.');
+              return false;
+            }
+          } else {
+            Alert.alert('❌ Berechtigung erforderlich', 'Benachrichtigungen sind für die beste Erfahrung erforderlich.');
+            return false;
+          }
+        } else {
+          Alert.alert('❌ Nicht unterstützt', 'Benachrichtigungen werden nicht unterstützt.');
+          return false;
+        }
+      } else {
+        Alert.alert('❌ Nicht unterstützt', 'Service Worker werden nicht unterstützt.');
+        return false;
+      }
+    } catch (error) {
+      console.error('🎯 ONBOARDING Notifications Fehler:', error);
+      Alert.alert('❌ Setup Fehler', 'Ein unerwarteter Fehler ist aufgetreten.');
+      return false;
+    }
+  };
 
   // Initialisiere Notification-System (plattform-spezifisch)
   const initializeNotifications = async () => {
@@ -716,6 +865,119 @@ export default function App() {
           </View>
         </LinearGradient>
       </Modal>
+
+      {/* 🎯 ONBOARDING Modal */}
+      {showOnboarding && (
+        <View style={styles.onboardingOverlay}>
+          <View style={styles.onboardingModal}>
+            {/* Header */}
+            <View style={styles.onboardingHeader}>
+              <Text style={styles.onboardingTitle}>
+                🎉 Willkommen bei Daily Budget!
+              </Text>
+              <Text style={styles.onboardingSubtitle}>
+                Installiere die App für die beste Erfahrung
+              </Text>
+            </View>
+
+            {/* Content basierend auf Schritt */}
+            <View style={styles.onboardingContent}>
+              {onboardingStep === 1 && (
+                <View style={styles.onboardingStep}>
+                  <Text style={styles.onboardingStepTitle}>
+                    📱 Schritt 1: App installieren
+                  </Text>
+                  <Text style={styles.onboardingStepText}>
+                    {/iPad|iPhone|iPod/.test(navigator.userAgent) ? (
+                      'iPhone/iPad:\n\n1. Tippe auf das Teilen-Symbol (📤) in Safari\n2. Wähle "Zum Home-Bildschirm hinzufügen"\n3. Tippe "Hinzufügen"\n4. Öffne die App vom Home-Bildschirm'
+                    ) : (
+                      'Desktop:\n\n1. Klicke auf das Installieren-Symbol in der Adressleiste\n2. Bestätige die Installation\n3. Die App ist jetzt verfügbar'
+                    )}
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.onboardingButton}
+                    onPress={() => setOnboardingStep(2)}
+                  >
+                    <Text style={styles.onboardingButtonText}>
+                      ✅ App installiert, weiter
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {onboardingStep === 2 && (
+                <View style={styles.onboardingStep}>
+                  <Text style={styles.onboardingStepTitle}>
+                    🔔 Schritt 2: Benachrichtigungen aktivieren
+                  </Text>
+                  <Text style={styles.onboardingStepText}>
+                    Erhalte automatische Updates über dein Budget, Ausgaben und Erinnerungen.
+                    {'\n\n'}• Budget-Updates bei Transaktionen
+                    {'\n'}• Warnungen bei niedrigem Budget  
+                    {'\n'}• Tägliche Erinnerungen
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.onboardingButtonPrimary}
+                    onPress={async () => {
+                      const success = await activateNotificationsOnboarding();
+                      if (success) {
+                        setOnboardingStep(3);
+                      }
+                    }}
+                  >
+                    <Text style={styles.onboardingButtonTextPrimary}>
+                      🔔 Hier klicken - Benachrichtigungen aktivieren
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.onboardingButtonSecondary}
+                    onPress={() => closeOnboarding()}
+                  >
+                    <Text style={styles.onboardingButtonTextSecondary}>
+                      Später aktivieren
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {onboardingStep === 3 && (
+                <View style={styles.onboardingStep}>
+                  <Text style={styles.onboardingStepTitle}>
+                    🎉 Alles bereit!
+                  </Text>
+                  <Text style={styles.onboardingStepText}>
+                    Daily Budget App ist jetzt vollständig eingerichtet!
+                    {'\n\n'}✅ App installiert
+                    {'\n'}✅ Benachrichtigungen aktiv
+                    {'\n'}✅ Bereit für Budget-Tracking
+                    {'\n\n'}Viel Spaß beim Verwalten deines Budgets! 💰
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.onboardingButtonPrimary}
+                    onPress={() => closeOnboarding()}
+                  >
+                    <Text style={styles.onboardingButtonTextPrimary}>
+                      🚀 Los geht's!
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            {/* Skip Button - nur in Schritt 1 */}
+            {onboardingStep === 1 && (
+              <TouchableOpacity 
+                style={styles.onboardingSkip}
+                onPress={() => closeOnboarding()}
+              >
+                <Text style={styles.onboardingSkipText}>
+                  Überspringen
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1032,5 +1294,119 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: 'white',
+  },
+  // 🎯 ONBOARDING Styles
+  onboardingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  onboardingModal: {
+    backgroundColor: 'white',
+    margin: 20,
+    borderRadius: 20,
+    padding: 24,
+    maxWidth: 400,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  onboardingHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  onboardingTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  onboardingSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  onboardingContent: {
+    marginBottom: 20,
+  },
+  onboardingStep: {
+    alignItems: 'center',
+  },
+  onboardingStepTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  onboardingStepText: {
+    fontSize: 15,
+    color: '#444',
+    textAlign: 'left',
+    lineHeight: 22,
+    marginBottom: 24,
+    alignSelf: 'stretch',
+  },
+  onboardingButton: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  onboardingButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  onboardingButtonPrimary: {
+    backgroundColor: '#0A84FF',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#0A84FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  onboardingButtonTextPrimary: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  onboardingButtonSecondary: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  onboardingButtonTextSecondary: {
+    color: '#666',
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  onboardingSkip: {
+    alignSelf: 'center',
+    padding: 12,
+  },
+  onboardingSkipText: {
+    color: '#999',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
