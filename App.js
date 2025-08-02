@@ -70,6 +70,11 @@ export default function App() {
         const hour = now.getHours();
         const minute = now.getMinutes();
         
+        // Debug-Log alle 10 Minuten
+        if (minute % 10 === 0) {
+          console.log(`🕘 Automatische Benachrichtigungen: ${hour}:${minute.toString().padStart(2, '0')} (warte auf 9:00 oder 20:00)`);
+        }
+        
         // 9:00 Uhr morgens oder 20:00 Uhr abends (bei Minute 0, damit nur einmal pro Stunde)
         if (minute === 0 && (hour === 9 || hour === 20)) {
           console.log(`🕘 Zeit für tägliche Benachrichtigung: ${hour}:00`);
@@ -87,7 +92,7 @@ export default function App() {
             
             const notification = new Notification(`💸 ${timeText}`, {
               body: `Dein aktuelles Tagesbudget: ${formatCurrency(dailyBudget)}\nVerbleibendes Budget: ${formatCurrency(remainingBudget)}\nNoch ${remainingDays} Tage im Monat`,
-              icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+',
+              icon: '/favicon.svg',
               requireInteraction: false,
               tag: `daily-budget-${hour}`
             });
@@ -307,6 +312,30 @@ export default function App() {
       updateDailyReminders();
     }
   }, [dailyBudget]);
+
+  // 🔔 VERBINDUNG ZUM SERVICE WORKER für Hintergrund-Benachrichtigungen
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
+      console.log('🔔 Registriere Service Worker für Hintergrund-Benachrichtigungen...');
+      
+      navigator.serviceWorker.ready.then(registration => {
+        console.log('🔔 Service Worker bereit:', registration);
+        
+        // Sende Nachricht an Service Worker für tägliche Erinnerungen
+        if (registration.active) {
+          registration.active.postMessage({
+            type: 'SCHEDULE_DAILY_REMINDER',
+            dailyBudget: dailyBudget,
+            remainingBudget: remainingBudget,
+            remainingDays: remainingDays
+          });
+          console.log('✅ Tägliche Erinnerungen an Service Worker übertragen');
+        }
+      }).catch(error => {
+        console.log('❌ Service Worker Fehler:', error);
+      });
+    }
+  }, [dailyBudget, remainingBudget, remainingDays]);
 
   // App Focus Handler - behebt Bug beim Wechseln zwischen Apps
   useEffect(() => {
@@ -614,6 +643,74 @@ export default function App() {
               </View>
             </View>
           )}
+
+          {/* 🔧 DEBUG BUTTONS */}
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugTitle}>🔧 Debug Tests</Text>
+            
+            {/* BUTTON TEST */}
+            <TouchableOpacity
+              style={[styles.debugButton, { backgroundColor: '#FF6B6B' }]}
+              onPress={() => {
+                console.log('🧪 BUTTON TEST geklickt');
+                alert('🧪 Button funktioniert!');
+              }}
+            >
+              <Text style={styles.debugButtonText}>🧪 BUTTON TEST</Text>
+            </TouchableOpacity>
+
+            {/* TÄGLICHE BENACHRICHTIGUNG TESTEN */}
+            <TouchableOpacity
+              style={[styles.debugButton, { backgroundColor: '#4ECDC4' }]}
+              onPress={() => {
+                console.log('🕘 TESTE TÄGLICHE BENACHRICHTIGUNG...');
+                
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  const notification = new Notification('💸 TEST: Tägliche Erinnerung', {
+                    body: `AKTUELLES BUDGET: ${formatCurrency(dailyBudget)}\nVerbleibendes Budget: ${formatCurrency(remainingBudget)}\nNoch ${remainingDays} Tage im Monat`,
+                    icon: '/favicon.svg',
+                    requireInteraction: false,
+                    tag: 'daily-test'
+                  });
+                  
+                  notification.onclick = () => {
+                    console.log('🕘 Test-Benachrichtigung geklickt');
+                    notification.close();
+                  };
+                  
+                  alert('✅ Test-Benachrichtigung gesendet!');
+                  console.log('✅ Test-Benachrichtigung für tägliche Erinnerung gesendet');
+                } else {
+                  alert('❌ Benachrichtigungen nicht erlaubt!');
+                  console.log('❌ Notifications nicht verfügbar oder nicht erlaubt');
+                }
+              }}
+            >
+              <Text style={styles.debugButtonText}>🕘 TESTE TÄGLICHE ERINNERUNG</Text>
+            </TouchableOpacity>
+
+            {/* ZEITPLAN-STATUS */}
+            <TouchableOpacity
+              style={[styles.debugButton, { backgroundColor: '#95E1D3' }]}
+              onPress={() => {
+                const now = new Date();
+                const hour = now.getHours();
+                const minute = now.getMinutes();
+                const notificationPermission = 'Notification' in window ? Notification.permission : 'nicht verfügbar';
+                
+                const status = `🕘 ZEITPLAN-STATUS:
+• Aktuelle Zeit: ${hour}:${minute.toString().padStart(2, '0')}
+• Benachrichtigungen: ${notificationPermission}
+• Nächste Erinnerung: ${hour < 9 ? 'Heute 9:00' : hour < 20 ? 'Heute 20:00' : 'Morgen 9:00'}
+• Budget: ${formatCurrency(dailyBudget)}`;
+                
+                alert(status);
+                console.log(status);
+              }}
+            >
+              <Text style={styles.debugButtonText}>🕘 ZEITPLAN-STATUS</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -1242,5 +1339,33 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 14,
     fontWeight: '500',
+  },
+  // 🔧 DEBUG Styles
+  debugContainer: {
+    paddingHorizontal: 24,
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 12,
+  },
+  debugButton: {
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  debugButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
