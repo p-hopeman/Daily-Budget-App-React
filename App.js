@@ -583,7 +583,7 @@ export default function App() {
                 }}
               >
                 <Ionicons 
-                  name={isWeb ? "notifications-outline" : "settings-outline"} 
+                  name={Platform.OS === 'web' ? "notifications-outline" : "settings-outline"} 
                   size={24} 
                   color="#666"
                 />
