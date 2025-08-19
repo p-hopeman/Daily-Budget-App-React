@@ -18,8 +18,6 @@ const SettingsModal = ({ visible, onClose }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState({ hour: 9, minute: 0 });
-  const [lowBudgetWarnings, setLowBudgetWarnings] = useState(true);
-  const [motivationNotifications, setMotivationNotifications] = useState(true);
 
   useEffect(() => {
     loadSettings();
@@ -33,8 +31,6 @@ const SettingsModal = ({ visible, onClose }) => {
         setNotificationsEnabled(parsed.notificationsEnabled || false);
         setDailyReminderEnabled(parsed.dailyReminderEnabled || false);
         setReminderTime(parsed.reminderTime || { hour: 9, minute: 0 });
-        setLowBudgetWarnings(parsed.lowBudgetWarnings !== false);
-        setMotivationNotifications(parsed.motivationNotifications !== false);
       }
     } catch (error) {
       console.error('Fehler beim Laden der Einstellungen:', error);
@@ -78,8 +74,6 @@ const SettingsModal = ({ visible, onClose }) => {
       notificationsEnabled: enabled,
       dailyReminderEnabled: enabled ? dailyReminderEnabled : false,
       reminderTime,
-      lowBudgetWarnings,
-      motivationNotifications,
     };
     
     await saveSettings(settings);
@@ -106,8 +100,6 @@ const SettingsModal = ({ visible, onClose }) => {
       notificationsEnabled,
       dailyReminderEnabled: enabled,
       reminderTime,
-      lowBudgetWarnings,
-      motivationNotifications,
     };
     
     await saveSettings(settings);
@@ -135,10 +127,7 @@ const SettingsModal = ({ visible, onClose }) => {
       notificationsEnabled,
       dailyReminderEnabled,
       reminderTime: newTime,
-      lowBudgetWarnings,
-      motivationNotifications,
     };
-    
     saveSettings(settings);
   };
 
@@ -153,58 +142,50 @@ const SettingsModal = ({ visible, onClose }) => {
   ];
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <LinearGradient colors={['#FAFAFF', '#F5F6FF']} style={styles.container}>
-        <ScrollView style={styles.scrollView}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={16} color="#666" />
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <LinearGradient
+            colors={['#4CAF50', '#45A049']}
+            style={styles.modalHeader}
+          >
+            <Text style={styles.modalTitle}>Einstellungen</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="white" />
             </TouchableOpacity>
-            <Text style={styles.title}>⚙️ Einstellungen</Text>
-          </View>
+          </LinearGradient>
 
-          {/* Haupteinstellungen */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Benachrichtigungen</Text>
-            
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>📱 Push Benachrichtigungen</Text>
-                <Text style={styles.settingDescription}>
-                  Erhalte Updates zu deinem Budget
-                </Text>
+          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            {/* Benachrichtigungen */}
+            <View style={styles.settingSection}>
+              <Text style={styles.sectionTitle}>🔔 Benachrichtigungen</Text>
+              
+              <View style={styles.settingRow}>
+                <Text style={styles.settingLabel}>Benachrichtigungen aktivieren</Text>
+                <Switch
+                  value={notificationsEnabled}
+                  onValueChange={handleNotificationsToggle}
+                  trackColor={{ false: '#767577', true: '#4CAF50' }}
+                  thumbColor={notificationsEnabled ? '#fff' : '#f4f3f4'}
+                />
               </View>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={handleNotificationsToggle}
-                trackColor={{ false: '#E5E5E5', true: '#00C851' }}
-                thumbColor={notificationsEnabled ? '#FFFFFF' : '#FFFFFF'}
-              />
-            </View>
 
-            {notificationsEnabled && (
-              <>
-                <View style={styles.settingItem}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingLabel}>⏰ Tägliche Erinnerung</Text>
-                    <Text style={styles.settingDescription}>
-                      Tägliche Budget-Erinnerung aktivieren
-                    </Text>
+              {notificationsEnabled && (
+                <>
+                  <View style={styles.settingRow}>
+                    <Text style={styles.settingLabel}>Tägliche Erinnerung</Text>
+                    <Switch
+                      value={dailyReminderEnabled}
+                      onValueChange={handleDailyReminderToggle}
+                      trackColor={{ false: '#767577', true: '#4CAF50' }}
+                      thumbColor={dailyReminderEnabled ? '#fff' : '#f4f3f4'}
+                    />
                   </View>
-                  <Switch
-                    value={dailyReminderEnabled}
-                    onValueChange={handleDailyReminderToggle}
-                    trackColor={{ false: '#E5E5E5', true: '#00C851' }}
-                    thumbColor={dailyReminderEnabled ? '#FFFFFF' : '#FFFFFF'}
-                  />
-                </View>
 
-                {dailyReminderEnabled && (
-                  <View style={styles.timeSelector}>
-                    <Text style={styles.timeSelectorTitle}>🕘 Erinnerungszeit:</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={styles.timeOptions}>
+                  {dailyReminderEnabled && (
+                    <View style={styles.settingRow}>
+                      <Text style={styles.settingLabel}>Erinnerungszeit</Text>
+                      <View style={styles.timeSelector}>
                         {timeOptions.map((time) => (
                           <TouchableOpacity
                             key={time.hour}
@@ -223,232 +204,123 @@ const SettingsModal = ({ visible, onClose }) => {
                           </TouchableOpacity>
                         ))}
                       </View>
-                    </ScrollView>
-                  </View>
-                )}
+                    </View>
+                  )}
 
-                <View style={styles.settingItem}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingLabel}>⚠️ Niedrig-Budget Warnungen</Text>
-                    <Text style={styles.settingDescription}>
-                      Warnung bei niedrigem Tagesbudget
-                    </Text>
-                  </View>
-                  <Switch
-                    value={lowBudgetWarnings}
-                    onValueChange={(value) => {
-                      setLowBudgetWarnings(value);
-                      saveSettings({
-                        notificationsEnabled,
-                        dailyReminderEnabled,
-                        reminderTime,
-                        lowBudgetWarnings: value,
-                        motivationNotifications,
-                      });
-                    }}
-                    trackColor={{ false: '#E5E5E5', true: '#FFD700' }}
-                    thumbColor={lowBudgetWarnings ? '#FFFFFF' : '#FFFFFF'}
-                  />
-                </View>
-
-                <View style={styles.settingItem}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingLabel}>🎉 Motivations-Nachrichten</Text>
-                    <Text style={styles.settingDescription}>
-                      Positive Nachrichten bei gutem Budget
-                    </Text>
-                  </View>
-                  <Switch
-                    value={motivationNotifications}
-                    onValueChange={(value) => {
-                      setMotivationNotifications(value);
-                      saveSettings({
-                        notificationsEnabled,
-                        dailyReminderEnabled,
-                        reminderTime,
-                        lowBudgetWarnings,
-                        motivationNotifications: value,
-                      });
-                    }}
-                    trackColor={{ false: '#E5E5E5', true: '#00C851' }}
-                    thumbColor={motivationNotifications ? '#FFFFFF' : '#FFFFFF'}
-                  />
-                </View>
-              </>
-            )}
-          </View>
-
-          {/* Test-Bereich */}
-          {notificationsEnabled && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Test</Text>
-              <TouchableOpacity
-                style={styles.testButton}
-                onPress={sendTestNotification}
-              >
-                <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.testButtonText}>Test-Benachrichtigung senden</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.testButton}
+                    onPress={sendTestNotification}
+                  >
+                    <Text style={styles.testButtonText}>🧪 Test-Benachrichtigung senden</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
-          )}
 
-          {/* Info-Bereich */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>ℹ️ Info</Text>
-            <View style={styles.infoBox}>
+            {/* Info */}
+            <View style={styles.settingSection}>
+              <Text style={styles.sectionTitle}>ℹ️ Info</Text>
               <Text style={styles.infoText}>
-                • Benachrichtigungen zeigen dein aktuelles Tagesbudget{'\n'}
-                • Warnungen bei niedrigem Budget helfen beim Sparen{'\n'}
-                • Motivations-Nachrichten feiern deine Erfolge{'\n'}
-                • Alle Daten bleiben lokal auf deinem Gerät
+                Benachrichtigungen helfen dir dabei, dein Budget im Blick zu behalten.
+                Du erhältst Updates bei Transaktionen und tägliche Erinnerungen.
               </Text>
             </View>
-          </View>
-        </ScrollView>
-      </LinearGradient>
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
-  scrollView: {
-    flex: 1,
-    padding: 24,
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
   },
-  header: {
-    alignItems: 'flex-start',
-    marginBottom: 32,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 16,
+    padding: 5,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    textAlign: 'center',
-    width: '100%',
+  modalBody: {
+    padding: 20,
   },
-  section: {
-    marginBottom: 32,
+  settingSection: {
+    marginBottom: 30,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: 15,
   },
-  settingItem: {
+  settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: 16,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   settingLabel: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
-  },
-  settingDescription: {
-    fontSize: 14,
-    color: '#666',
+    flex: 1,
   },
   timeSelector: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  timeSelectorTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  timeOptions: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 10,
   },
   timeOption: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#f0f0f0',
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#ddd',
   },
   timeOptionSelected: {
-    backgroundColor: '#00C851',
-    borderColor: '#00C851',
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
   },
   timeOptionText: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#666',
   },
   timeOptionTextSelected: {
     color: 'white',
+    fontWeight: 'bold',
   },
   testButton: {
-    flexDirection: 'row',
+    backgroundColor: '#FF9800',
+    padding: 15,
+    borderRadius: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 16,
-    gap: 8,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 15,
   },
   testButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    color: 'white',
-  },
-  infoBox: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
   infoText: {
     fontSize: 14,

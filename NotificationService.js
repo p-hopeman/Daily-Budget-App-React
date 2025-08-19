@@ -78,7 +78,7 @@ class NotificationService {
     }
   }
 
-  // Sende sofortige Budget-Benachrichtigung (alte Version - verwende besser sendBudgetUpdateNotification)
+  // Sende sofortige Budget-Benachrichtigung
   async sendBudgetNotification(dailyBudget, remainingBudget, remainingDays) {
     const budgetEmoji = this.getBudgetStatusEmoji(dailyBudget);
     
@@ -99,18 +99,17 @@ class NotificationService {
     });
   }
 
-  // Plane tägliche Budget-Erinnerung (morgens und abends) mit aktuellem Budget
+  // Plane tägliche Budget-Erinnerung (morgens und abends)
   async scheduleDailyBudgetReminders(dailyBudget = null) {
     // Lösche vorherige tägliche Erinnerungen
     await this.cancelDailyReminders();
 
-    // Wenn kein Budget übergeben wurde, verwende Platzhalter
     const budgetEmoji = dailyBudget ? this.getBudgetStatusEmoji(dailyBudget) : '💰';
     const budgetText = dailyBudget ? 
       `${budgetEmoji} Tagesbudget: ${this.formatCurrency(dailyBudget)}` : 
       '💰 Tagesbudget anzeigen';
 
-    // Morgens um 8:00 Uhr
+    // Morgens um 9:00 Uhr
     await Notifications.scheduleNotificationAsync({
       content: {
         title: budgetText,
@@ -119,7 +118,7 @@ class NotificationService {
         sound: true,
       },
       trigger: {
-        hour: 8,
+        hour: 9,
         minute: 0,
         repeats: true,
       },
@@ -149,12 +148,10 @@ class NotificationService {
   async sendBudgetUpdateNotification(dailyBudget, remainingBudget, remainingDays, changeAmount = null, isExpense = false) {
     const budgetEmoji = this.getBudgetStatusEmoji(dailyBudget);
     
-    // Title: Immer das aktuelle Tagesbudget mit Status-Emoji (wichtigste Info zuerst!)
     const title = `${budgetEmoji} Tagesbudget: ${this.formatCurrency(dailyBudget)}`;
     
     let body;
     if (changeAmount) {
-      // Body: Transaktions-Info in zweiter Zeile
       body = isExpense ? 
         `➖ Ausgabe: ${this.formatCurrency(Math.abs(changeAmount))}` : 
         `➕ Einzahlung: ${this.formatCurrency(Math.abs(changeAmount))}`;
@@ -188,12 +185,11 @@ class NotificationService {
       
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `${budgetEmoji} Tagesbudget: ${this.formatCurrency(dailyBudget)}`,
-          body: '⚠️ Niedriges Budget!',
+          title: `⚠️ Niedriges Budget: ${this.formatCurrency(dailyBudget)}`,
+          body: 'Vorsicht bei weiteren Ausgaben!',
           data: { 
             type: 'low_budget_warning',
-            dailyBudget,
-            threshold: thresholdAmount
+            dailyBudget
           },
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
@@ -237,29 +233,33 @@ class NotificationService {
     console.log('Alle geplanten Benachrichtigungen gelöscht');
   }
 
-  // Lösche nur tägliche Erinnerungen
+  // Lösche tägliche Erinnerungen
   async cancelDailyReminders() {
     await Notifications.cancelScheduledNotificationAsync('morning-budget-reminder');
     await Notifications.cancelScheduledNotificationAsync('evening-budget-reminder');
-    // Für Rückwärtskompatibilität
-    await Notifications.cancelScheduledNotificationAsync('daily-budget-reminder');
+    console.log('Tägliche Erinnerungen gelöscht');
   }
 
-  // Zeige alle geplanten Benachrichtigungen (Debug)
-  async getScheduledNotifications() {
-    const notifications = await Notifications.getAllScheduledNotificationsAsync();
-    console.log('Geplante Benachrichtigungen:', notifications);
-    return notifications;
-  }
-
-  // Handle Notification Response (wenn User auf Benachrichtigung tippt)
-  addNotificationResponseListener(callback) {
-    return Notifications.addNotificationResponseReceivedListener(callback);
-  }
-
-  // Handle Notification Received (wenn App im Vordergrund ist)
-  addNotificationReceivedListener(callback) {
-    return Notifications.addNotificationReceivedListener(callback);
+  // Plane tägliche Erinnerung zu bestimmter Zeit
+  async scheduleDailyBudgetReminder(hour, minute) {
+    await this.cancelDailyReminders();
+    
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '💰 Tagesbudget anzeigen',
+        body: 'Zeit für dein Budget-Update!',
+        data: { type: 'daily_reminder' },
+        sound: true,
+      },
+      trigger: {
+        hour: hour,
+        minute: minute,
+        repeats: true,
+      },
+      identifier: 'daily-budget-reminder',
+    });
+    
+    console.log(`Tägliche Erinnerung um ${hour}:${minute.toString().padStart(2, '0')} geplant`);
   }
 }
 
