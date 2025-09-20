@@ -68,6 +68,34 @@ export default function App() {
     }
   }, []);
 
+    // Web: Manifest-Link sicherstellen und Service Worker registrieren (minimal)
+    useEffect(() => {
+      if (Platform.OS === 'web') {
+        try {
+          if (!document.querySelector("link[rel='manifest']")) {
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = '/manifest.json';
+            document.head.appendChild(link);
+          }
+          if ('serviceWorker' in navigator) {
+            const onLoad = () => {
+              navigator.serviceWorker.register('/sw.js').catch((err) => {
+                console.log('SW reg error', err);
+              });
+            };
+            if (document.readyState === 'complete') {
+              onLoad();
+            } else {
+              window.addEventListener('load', onLoad, { once: true });
+            }
+          }
+        } catch (e) {
+          console.log('PWA init error', e);
+        }
+      }
+    }, []);
+
   // Lade Daten beim App-Start und initialisiere Notifications
   useEffect(() => {
     loadData();
