@@ -68,6 +68,23 @@ export default function App() {
     }
   }, []);
 
+  // Web: Statisches Theme-Color auf Weiß setzen
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      try {
+        let meta = document.querySelector("meta[name='theme-color']");
+        if (!meta) {
+          meta = document.createElement('meta');
+          meta.setAttribute('name', 'theme-color');
+          document.head.appendChild(meta);
+        }
+        meta.setAttribute('content', '#FFFFFF');
+      } catch (e) {
+        console.log('theme-color meta error', e);
+      }
+    }
+  }, []);
+
     // Web: Manifest-Link sicherstellen und Service Worker registrieren (minimal)
     useEffect(() => {
       if (Platform.OS === 'web') {
