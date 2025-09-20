@@ -304,7 +304,7 @@ export default function App() {
             setTimeout(() => {
               const notification = new Notification('🎉 Daily Budget App', {
                 body: 'Web-Benachrichtigungen sind aktiv! Du erhältst Budget-Updates auch im Browser.',
-                icon: '/favicon.svg',
+                icon: '/assets/icon-48.png',
                 requireInteraction: true
               });
             }, 2000);
@@ -321,7 +321,7 @@ export default function App() {
                   // Sende Willkommens-Notification
                   const notification = new Notification('💸 Willkommen!', {
                     body: 'Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates.',
-                    icon: '/favicon.svg',
+                    icon: '/assets/icon-48.png',
                     requireInteraction: true
                   });
                 } else {
@@ -512,7 +512,7 @@ export default function App() {
       if (Platform.OS === 'web' && 'Notification' in window && Notification.permission === 'granted') {
         const notification = new Notification('💸 Budget aktualisiert!', {
           body: `${!isDeposit ? '➖ Ausgabe' : '➕ Einzahlung'}: ${formatCurrency(amount)}\nNeues Tagesbudget: ${formatCurrency(newDailyBudget)}`,
-          icon: '/favicon.svg',
+          icon: '/assets/icon-48.png',
           tag: 'budget-update'
         });
         
@@ -520,7 +520,7 @@ export default function App() {
         if (newDailyBudget <= 5) {
           const warningNotification = new Notification('⚠️ Niedriges Budget!', {
             body: `Dein Tagesbudget ist nur noch ${formatCurrency(newDailyBudget)}. Vorsicht bei weiteren Ausgaben!`,
-            icon: '/favicon.svg',
+            icon: '/assets/icon-48.png',
             tag: 'low-budget-warning'
           });
         }
@@ -529,7 +529,7 @@ export default function App() {
         if (newDailyBudget > 20) {
           const motivationNotification = new Notification('🎉 Super Budget!', {
             body: `Dein Tagesbudget ist ${formatCurrency(newDailyBudget)}. Weiter so!`,
-            icon: '/favicon.svg',
+            icon: '/assets/icon-48.png',
             tag: 'motivation'
           });
         }
