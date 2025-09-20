@@ -37,6 +37,37 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(1);
 
+  // iOS PWA Meta-Tags und Apple Touch Icon sicherstellen (minimal, ohne weitere Logik)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      try {
+        const ensureMeta = (name, content) => {
+          let el = document.querySelector(`meta[name="${name}"]`);
+          if (!el) {
+            el = document.createElement('meta');
+            el.setAttribute('name', name);
+            document.head.appendChild(el);
+          }
+          el.setAttribute('content', content);
+        };
+
+        ensureMeta('apple-mobile-web-app-capable', 'yes');
+        ensureMeta('apple-mobile-web-app-status-bar-style', 'default');
+        ensureMeta('apple-mobile-web-app-title', 'Daily Budget App');
+
+        if (!document.querySelector("link[rel='apple-touch-icon']")) {
+          const link = document.createElement('link');
+          link.rel = 'apple-touch-icon';
+          // PNG-Icon aus assets verwenden (iOS unterstützt kein SVG)
+          link.href = '/assets/favicon.png';
+          document.head.appendChild(link);
+        }
+      } catch (e) {
+        console.log('iOS PWA meta injection error', e);
+      }
+    }
+  }, []);
+
   // Lade Daten beim App-Start und initialisiere Notifications
   useEffect(() => {
     loadData();
