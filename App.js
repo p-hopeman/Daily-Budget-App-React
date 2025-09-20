@@ -58,10 +58,20 @@ export default function App() {
         if (!document.querySelector("link[rel='apple-touch-icon']")) {
           const link = document.createElement('link');
           link.rel = 'apple-touch-icon';
-          // PNG-Icon aus assets verwenden (iOS unterstützt kein SVG)
-          link.href = '/assets/favicon.png';
+          // iOS Homescreen Icon (PNG, empfohlen 180x180)
+          link.href = '/assets/icon.png';
           document.head.appendChild(link);
         }
+
+        // Browser Favicon (falls vorhanden aktualisieren, sonst hinzufügen)
+        let favicon = document.querySelector("link[rel='icon']");
+        if (!favicon) {
+          favicon = document.createElement('link');
+          favicon.rel = 'icon';
+          favicon.type = 'image/png';
+          document.head.appendChild(favicon);
+        }
+        favicon.href = '/assets/icon.png';
       } catch (e) {
         console.log('iOS PWA meta injection error', e);
       }
@@ -92,7 +102,8 @@ export default function App() {
           if (!document.querySelector("link[rel='manifest']")) {
             const link = document.createElement('link');
             link.rel = 'manifest';
-            link.href = '/manifest.json';
+            // Version-Parameter, um Cache zu busten, wenn Icons geändert wurden
+            link.href = '/manifest.json?v=2';
             document.head.appendChild(link);
           }
           if ('serviceWorker' in navigator) {
