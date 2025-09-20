@@ -58,9 +58,12 @@ export default function App() {
         if (!document.querySelector("link[rel='apple-touch-icon']")) {
           const link = document.createElement('link');
           link.rel = 'apple-touch-icon';
-          // iOS Homescreen Icon (PNG, empfohlen 180x180)
-          link.href = '/assets/icon.png';
+          // iOS Homescreen Icon (PNG 180x180)
+          link.href = '/assets/icon-180.png';
           document.head.appendChild(link);
+        } else {
+          const link = document.querySelector("link[rel='apple-touch-icon']");
+          link.setAttribute('href', '/assets/icon-180.png');
         }
 
         // Browser Favicon (falls vorhanden aktualisieren, sonst hinzufügen)
@@ -71,7 +74,7 @@ export default function App() {
           favicon.type = 'image/png';
           document.head.appendChild(favicon);
         }
-        favicon.href = '/assets/icon.png';
+        favicon.href = '/assets/icon-48.png';
       } catch (e) {
         console.log('iOS PWA meta injection error', e);
       }
