@@ -1,7 +1,8 @@
 import webpush from 'web-push';
+import { getStore } from '@netlify/blobs';
 
-const subsMemory = globalThis.__SUBS__ || (globalThis.__SUBS__ = new Map());
-const budgetsMemory = globalThis.__BUDGETS__ || (globalThis.__BUDGETS__ = new Map());
+const subsStore = getStore('subscriptions');
+const budgetsStore = getStore('budgets');
 
 function ensureVapid() {
   const publicKey = process.env.VAPID_PUBLIC_KEY || '';
@@ -22,14 +23,19 @@ export async function handler() {
     const nowUtc = new Date();
 
     const sends = [];
-    for (const [userId, subEntry] of subsMemory.entries()) {
+    // Liste aller Keys aus dem Subscriptions-Store holen
+    const list = await subsStore.list();
+    for (const { key } of list.blobs) {
+      const subRaw = await subsStore.get(key);
+      if (!subRaw) continue;
+      const subEntry = JSON.parse(subRaw);
       const tz = subEntry.timezone || 'Europe/Berlin';
-      // Compute local hour for the user
       const local = new Date(nowUtc.toLocaleString('en-US', { timeZone: tz }));
       const hour = local.getHours();
       if (hour !== 9 && hour !== 20) continue;
 
-      const budgetEntry = budgetsMemory.get(userId);
+      const budgetRaw = await budgetsStore.get(key);
+      const budgetEntry = budgetRaw ? JSON.parse(budgetRaw) : {};
       const daily = budgetEntry?.dailyBudget ?? 0;
       const body = `Heutiges Tagesbudget: ${daily.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}`;
 

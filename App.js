@@ -102,14 +102,15 @@ export default function App() {
   useEffect(() => {
     if (Platform.OS === 'web') {
       try {
-        const userId = localStorage.getItem('db-user-id');
+        const key = localStorage.getItem('db-sub-key');
+        const token = localStorage.getItem('db-sub-token');
         const timezone = localStorage.getItem('db-timezone');
-        if (userId && !Number.isNaN(dailyBudget)) {
+        if (key && token && !Number.isNaN(dailyBudget)) {
           fetch('/.netlify/functions/updateBudget', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
-              userId,
+              key,
               timezone,
               dailyBudget,
               remainingBudget,
@@ -157,11 +158,6 @@ export default function App() {
     if (Platform.OS === 'web') {
       const ensureUserIdentity = () => {
         try {
-          let uid = localStorage.getItem('db-user-id');
-          if (!uid) {
-            uid = Math.random().toString(36).slice(2) + Date.now().toString(36);
-            localStorage.setItem('db-user-id', uid);
-          }
           const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin';
           localStorage.setItem('db-timezone', tz);
         } catch {}
@@ -193,13 +189,19 @@ export default function App() {
             const appServerKey = base64UrlToUint8Array(publicKey);
             sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey });
           }
-          const userId = localStorage.getItem('db-user-id');
           const timezone = localStorage.getItem('db-timezone');
-          await fetch('/.netlify/functions/subscribe', {
+          const resp = await fetch('/.netlify/functions/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, timezone, subscription: sub })
+            body: JSON.stringify({ timezone, subscription: sub })
           });
+          try {
+            const data = await resp.json();
+            if (data?.key && data?.token) {
+              localStorage.setItem('db-sub-key', data.key);
+              localStorage.setItem('db-sub-token', data.token);
+            }
+          } catch {}
         } catch (e) {
           console.log('push subscribe error', e);
         }
