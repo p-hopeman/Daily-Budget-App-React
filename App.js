@@ -98,6 +98,31 @@ export default function App() {
     }
   }, []);
 
+  // Web: Budget an Backend spiegeln (für serverseitige Push-Nachrichten mit Betrag)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      try {
+        const userId = localStorage.getItem('db-user-id');
+        const timezone = localStorage.getItem('db-timezone');
+        if (userId && !Number.isNaN(dailyBudget)) {
+          fetch('/.netlify/functions/updateBudget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              timezone,
+              dailyBudget,
+              remainingBudget,
+              remainingDays
+            })
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.log('budget sync error', e);
+      }
+    }
+  }, [dailyBudget, remainingBudget, remainingDays]);
+
     // Web: Manifest-Link sicherstellen und Service Worker registrieren (minimal)
     useEffect(() => {
       if (Platform.OS === 'web') {
@@ -126,6 +151,65 @@ export default function App() {
         }
       }
     }, []);
+
+  // Web: User-Identität + Push-Subscribe (wenn Permission erteilt)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const ensureUserIdentity = () => {
+        try {
+          let uid = localStorage.getItem('db-user-id');
+          if (!uid) {
+            uid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem('db-user-id', uid);
+          }
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin';
+          localStorage.setItem('db-timezone', tz);
+        } catch {}
+      };
+      ensureUserIdentity();
+
+      const base64UrlToUint8Array = (base64Url) => {
+        const padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
+        const base64 = (base64Url + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      };
+
+      const subscribeForPush = async () => {
+        try {
+          if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+          if (!('Notification' in window)) return;
+          if (Notification.permission !== 'granted') return;
+
+          const reg = await navigator.serviceWorker.ready;
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            const res = await fetch('/.netlify/functions/publicVapidKey', { cache: 'no-store' });
+            const { publicKey } = await res.json();
+            const appServerKey = base64UrlToUint8Array(publicKey);
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey });
+          }
+          const userId = localStorage.getItem('db-user-id');
+          const timezone = localStorage.getItem('db-timezone');
+          await fetch('/.netlify/functions/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, timezone, subscription: sub })
+          });
+        } catch (e) {
+          console.log('push subscribe error', e);
+        }
+      };
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(() => subscribeForPush());
+      }
+    }
+  }, []);
 
   // Lade Daten beim App-Start und initialisiere Notifications
   useEffect(() => {

@@ -1,0 +1,9 @@
+[[redirects]]
+  from = "/manifest.json"
+  to = "/public/manifest.json"
+  status = 200
+
+[functions]
+  directory = "netlify/functions"
+
+
