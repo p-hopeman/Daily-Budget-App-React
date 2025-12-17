@@ -59,11 +59,11 @@ export default function App() {
           const link = document.createElement('link');
           link.rel = 'apple-touch-icon';
           // iOS Homescreen Icon (PNG 180x180)
-          link.href = '/assets/icon-180.png';
+          link.href = '/assets/DailyBudget_icon_180x180.png';
           document.head.appendChild(link);
         } else {
           const link = document.querySelector("link[rel='apple-touch-icon']");
-          link.setAttribute('href', '/assets/icon-180.png');
+          link.setAttribute('href', '/assets/DailyBudget_icon_180x180.png');
         }
 
         // Browser Favicon (falls vorhanden aktualisieren, sonst hinzufügen)
@@ -74,7 +74,7 @@ export default function App() {
           favicon.type = 'image/png';
           document.head.appendChild(favicon);
         }
-        favicon.href = '/assets/icon-48.png';
+        favicon.href = '/assets/DailyBudget_icon_48x48.png';
       } catch (e) {
         console.log('iOS PWA meta injection error', e);
       }
@@ -106,7 +106,7 @@ export default function App() {
             const link = document.createElement('link');
             link.rel = 'manifest';
             // Version-Parameter, um Cache zu busten, wenn Icons geändert wurden
-            link.href = '/manifest.json?v=2';
+            link.href = '/manifest.json?v=3';
             document.head.appendChild(link);
           }
           if ('serviceWorker' in navigator) {
@@ -178,7 +178,7 @@ export default function App() {
             
             const notification = new Notification(`💸 ${timeText}`, {
               body: `Dein aktuelles Tagesbudget: ${formatCurrency(dailyBudget)}\nVerbleibendes Budget: ${formatCurrency(remainingBudget)}\nNoch ${remainingDays} Tage im Monat`,
-              icon: '/favicon.svg',
+              icon: '/assets/DailyBudget_icon_48x48.png',
               requireInteraction: false,
               tag: `daily-budget-${hour}`
             });
@@ -304,7 +304,7 @@ export default function App() {
             setTimeout(() => {
               const notification = new Notification('🎉 Daily Budget App', {
                 body: 'Web-Benachrichtigungen sind aktiv! Du erhältst Budget-Updates auch im Browser.',
-                icon: '/assets/icon-48.png',
+                icon: '/assets/DailyBudget_icon_48x48.png',
                 requireInteraction: true
               });
             }, 2000);
@@ -321,7 +321,7 @@ export default function App() {
                   // Sende Willkommens-Notification
                   const notification = new Notification('💸 Willkommen!', {
                     body: 'Benachrichtigungen sind jetzt aktiv! Du erhältst Budget-Updates.',
-                    icon: '/assets/icon-48.png',
+                    icon: '/assets/DailyBudget_icon_48x48.png',
                     requireInteraction: true
                   });
                 } else {
@@ -512,7 +512,7 @@ export default function App() {
       if (Platform.OS === 'web' && 'Notification' in window && Notification.permission === 'granted') {
         const notification = new Notification('💸 Budget aktualisiert!', {
           body: `${!isDeposit ? '➖ Ausgabe' : '➕ Einzahlung'}: ${formatCurrency(amount)}\nNeues Tagesbudget: ${formatCurrency(newDailyBudget)}`,
-          icon: '/assets/icon-48.png',
+          icon: '/assets/DailyBudget_icon_48x48.png',
           tag: 'budget-update'
         });
         
@@ -520,7 +520,7 @@ export default function App() {
         if (newDailyBudget <= 5) {
           const warningNotification = new Notification('⚠️ Niedriges Budget!', {
             body: `Dein Tagesbudget ist nur noch ${formatCurrency(newDailyBudget)}. Vorsicht bei weiteren Ausgaben!`,
-            icon: '/assets/icon-48.png',
+            icon: '/assets/DailyBudget_icon_48x48.png',
             tag: 'low-budget-warning'
           });
         }
@@ -529,7 +529,7 @@ export default function App() {
         if (newDailyBudget > 20) {
           const motivationNotification = new Notification('🎉 Super Budget!', {
             body: `Dein Tagesbudget ist ${formatCurrency(newDailyBudget)}. Weiter so!`,
-            icon: '/assets/icon-48.png',
+            icon: '/assets/DailyBudget_icon_48x48.png',
             tag: 'motivation'
           });
         }

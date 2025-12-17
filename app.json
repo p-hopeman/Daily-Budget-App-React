@@ -4,7 +4,7 @@
     "slug": "daily-budget-app-react",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/Icon.png",
+    "icon": "./assets/DailyBudget_icon_1024x1024.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -37,7 +37,7 @@
       "package": "com.philipp.dailybudgetapp.react"
     },
     "web": {
-      "favicon": "./assets/icon-48.png",
+      "favicon": "./assets/DailyBudget_icon_48x48.png",
       "bundler": "metro"
     },
     "extra": {
