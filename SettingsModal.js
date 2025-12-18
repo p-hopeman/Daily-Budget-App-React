@@ -15,8 +15,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationService from './NotificationService';
 
 const SettingsModal = ({ visible, onClose }) => {
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [dailyReminderEnabled, setDailyReminderEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [dailyReminderEnabled, setDailyReminderEnabled] = useState(true);
   const [reminderTime1, setReminderTime1] = useState({ hour: 9, minute: 0 });
   const [reminderTime2, setReminderTime2] = useState({ hour: 20, minute: 0 });
 
@@ -29,11 +29,22 @@ const SettingsModal = ({ visible, onClose }) => {
       const settings = await AsyncStorage.getItem('notificationSettings');
       if (settings) {
         const parsed = JSON.parse(settings);
-        setNotificationsEnabled(parsed.notificationsEnabled || false);
-        setDailyReminderEnabled(parsed.dailyReminderEnabled || false);
+        // Immer aktiv anzeigen, Button entfällt
+        setNotificationsEnabled(true);
+        setDailyReminderEnabled(true);
         setReminderTime1(parsed.reminderTime1 || { hour: 9, minute: 0 });
         setReminderTime2(parsed.reminderTime2 || { hour: 20, minute: 0 });
+      } else {
+        // Defaults initial speichern
+        await saveSettings({
+          notificationsEnabled: true,
+          dailyReminderEnabled: true,
+          reminderTime1,
+          reminderTime2,
+        });
       }
+      // Server-Zeitplan synchronisieren
+      await syncScheduleWithServer(reminderTime1, reminderTime2);
     } catch (error) {
       console.error('Fehler beim Laden der Einstellungen:', error);
     }
@@ -187,76 +198,46 @@ const SettingsModal = ({ visible, onClose }) => {
             colors={['#4CAF50', '#45A049']}
             style={styles.modalHeader}
           >
-            <Text style={styles.modalTitle}>Einstellungen</Text>
+            <Text style={styles.modalTitle}>Erinnerungszeiten</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="white" />
             </TouchableOpacity>
           </LinearGradient>
 
           <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-            {/* Benachrichtigungen */}
+            {/* Zeiten direkt bearbeiten */}
             <View style={styles.settingSection}>
-              <Text style={styles.sectionTitle}>🔔 Benachrichtigungen</Text>
-              
+              <Text style={styles.sectionTitle}>🔔 Erinnerungszeiten</Text>
               <View style={styles.settingRow}>
-                <Text style={styles.settingLabel}>Benachrichtigungen aktivieren</Text>
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={handleNotificationsToggle}
-                  trackColor={{ false: '#767577', true: '#4CAF50' }}
-                  thumbColor={notificationsEnabled ? '#fff' : '#f4f3f4'}
-                />
+                <Text style={styles.settingLabel}>Zeit 1 (HH:MM)</Text>
+                <View style={styles.timeInputs}>
+                  <TouchableOpacity onPress={() => onChangeTime(1, 'hour', String((reminderTime1.hour + 23) % 24))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
+                  <Text style={styles.timeDisplay}>{to2(reminderTime1.hour)}</Text>
+                  <TouchableOpacity onPress={() => onChangeTime(1, 'hour', String((reminderTime1.hour + 1) % 24))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
+                  <Text style={styles.colon}>:</Text>
+                  <TouchableOpacity onPress={() => onChangeTime(1, 'minute', String((reminderTime1.minute + 59) % 60))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
+                  <Text style={styles.timeDisplay}>{to2(reminderTime1.minute)}</Text>
+                  <TouchableOpacity onPress={() => onChangeTime(1, 'minute', String((reminderTime1.minute + 1) % 60))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
+                </View>
               </View>
-
-              {notificationsEnabled && (
-                <>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.settingLabel}>Tägliche Erinnerung</Text>
-                    <Switch
-                      value={dailyReminderEnabled}
-                      onValueChange={handleDailyReminderToggle}
-                      trackColor={{ false: '#767577', true: '#4CAF50' }}
-                      thumbColor={dailyReminderEnabled ? '#fff' : '#f4f3f4'}
-                    />
-                  </View>
-
-                  {dailyReminderEnabled && (
-                    <>
-                      <View style={styles.settingRow}>
-                        <Text style={styles.settingLabel}>Zeit 1 (HH:MM)</Text>
-                        <View style={styles.timeInputs}>
-                          <TouchableOpacity onPress={() => onChangeTime(1, 'hour', String((reminderTime1.hour + 23) % 24))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
-                          <Text style={styles.timeDisplay}>{to2(reminderTime1.hour)}</Text>
-                          <TouchableOpacity onPress={() => onChangeTime(1, 'hour', String((reminderTime1.hour + 1) % 24))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
-                          <Text style={styles.colon}>:</Text>
-                          <TouchableOpacity onPress={() => onChangeTime(1, 'minute', String((reminderTime1.minute + 59) % 60))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
-                          <Text style={styles.timeDisplay}>{to2(reminderTime1.minute)}</Text>
-                          <TouchableOpacity onPress={() => onChangeTime(1, 'minute', String((reminderTime1.minute + 1) % 60))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
-                        </View>
-                      </View>
-                      <View style={styles.settingRow}>
-                        <Text style={styles.settingLabel}>Zeit 2 (HH:MM)</Text>
-                        <View style={styles.timeInputs}>
-                          <TouchableOpacity onPress={() => onChangeTime(2, 'hour', String((reminderTime2.hour + 23) % 24))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
-                          <Text style={styles.timeDisplay}>{to2(reminderTime2.hour)}</Text>
-                          <TouchableOpacity onPress={() => onChangeTime(2, 'hour', String((reminderTime2.hour + 1) % 24))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
-                          <Text style={styles.colon}>:</Text>
-                          <TouchableOpacity onPress={() => onChangeTime(2, 'minute', String((reminderTime2.minute + 59) % 60))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
-                          <Text style={styles.timeDisplay}>{to2(reminderTime2.minute)}</Text>
-                          <TouchableOpacity onPress={() => onChangeTime(2, 'minute', String((reminderTime2.minute + 1) % 60))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
-                        </View>
-                      </View>
-                    </>
-                  )}
-
-                  <TouchableOpacity
-                    style={styles.testButton}
-                    onPress={sendTestNotification}
-                  >
-                    <Text style={styles.testButtonText}>🧪 Test-Benachrichtigung senden</Text>
-                  </TouchableOpacity>
-                </>
-              )}
+              <View style={styles.settingRow}>
+                <Text style={styles.settingLabel}>Zeit 2 (HH:MM)</Text>
+                <View style={styles.timeInputs}>
+                  <TouchableOpacity onPress={() => onChangeTime(2, 'hour', String((reminderTime2.hour + 23) % 24))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
+                  <Text style={styles.timeDisplay}>{to2(reminderTime2.hour)}</Text>
+                  <TouchableOpacity onPress={() => onChangeTime(2, 'hour', String((reminderTime2.hour + 1) % 24))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
+                  <Text style={styles.colon}>:</Text>
+                  <TouchableOpacity onPress={() => onChangeTime(2, 'minute', String((reminderTime2.minute + 59) % 60))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
+                  <Text style={styles.timeDisplay}>{to2(reminderTime2.minute)}</Text>
+                  <TouchableOpacity onPress={() => onChangeTime(2, 'minute', String((reminderTime2.minute + 1) % 60))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.testButton}
+                onPress={sendTestNotification}
+              >
+                <Text style={styles.testButtonText}>🧪 Test-Benachrichtigung senden</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Info */}
