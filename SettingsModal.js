@@ -17,7 +17,8 @@ import NotificationService from './NotificationService';
 const SettingsModal = ({ visible, onClose }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState({ hour: 9, minute: 0 });
+  const [reminderTime1, setReminderTime1] = useState({ hour: 9, minute: 0 });
+  const [reminderTime2, setReminderTime2] = useState({ hour: 20, minute: 0 });
 
   useEffect(() => {
     loadSettings();
@@ -30,7 +31,8 @@ const SettingsModal = ({ visible, onClose }) => {
         const parsed = JSON.parse(settings);
         setNotificationsEnabled(parsed.notificationsEnabled || false);
         setDailyReminderEnabled(parsed.dailyReminderEnabled || false);
-        setReminderTime(parsed.reminderTime || { hour: 9, minute: 0 });
+        setReminderTime1(parsed.reminderTime1 || { hour: 9, minute: 0 });
+        setReminderTime2(parsed.reminderTime2 || { hour: 20, minute: 0 });
       }
     } catch (error) {
       console.error('Fehler beim Laden der Einstellungen:', error);
@@ -73,7 +75,8 @@ const SettingsModal = ({ visible, onClose }) => {
     const settings = {
       notificationsEnabled: enabled,
       dailyReminderEnabled: enabled ? dailyReminderEnabled : false,
-      reminderTime,
+      reminderTime1,
+      reminderTime2,
     };
     
     await saveSettings(settings);
@@ -83,13 +86,11 @@ const SettingsModal = ({ visible, onClose }) => {
     setDailyReminderEnabled(enabled);
     
     if (enabled) {
-      await NotificationService.scheduleDailyBudgetReminder(
-        reminderTime.hour,
-        reminderTime.minute
-      );
+      // Native Scheduling (falls native)
+      await NotificationService.scheduleDailyBudgetReminders?.(reminderTime1, reminderTime2);
       Alert.alert(
-        '⏰ Tägliche Erinnerung aktiviert',
-        `Du erhältst täglich um ${reminderTime.hour}:${reminderTime.minute < 10 ? '0' : ''}${reminderTime.minute} eine Erinnerung!`
+        '⏰ Tägliche Erinnerungen aktiviert',
+        `Du erhältst täglich um ${formatTime(reminderTime1)} und ${formatTime(reminderTime2)} eine Erinnerung!`
       );
     } else {
       await NotificationService.cancelDailyReminders();
@@ -99,10 +100,12 @@ const SettingsModal = ({ visible, onClose }) => {
     const settings = {
       notificationsEnabled,
       dailyReminderEnabled: enabled,
-      reminderTime,
+      reminderTime1,
+      reminderTime2,
     };
     
     await saveSettings(settings);
+    await syncScheduleWithServer(reminderTime1, reminderTime2);
   };
 
   const sendTestNotification = async () => {
@@ -115,20 +118,55 @@ const SettingsModal = ({ visible, onClose }) => {
     Alert.alert('📱 Test-Benachrichtigung gesendet!');
   };
 
-  const changeReminderTime = (newHour) => {
-    const newTime = { hour: newHour, minute: 0 };
-    setReminderTime(newTime);
-    
-    if (dailyReminderEnabled) {
-      NotificationService.scheduleDailyBudgetReminder(newHour, 0);
-    }
+  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+  const to2 = (n) => n.toString().padStart(2, '0');
+  const formatTime = (t) => `${to2(t.hour)}:${to2(t.minute)}`;
 
+  const onChangeTime = (idx, field, value) => {
+    const num = parseInt(value.replace(/\\D/g, ''), 10);
+    if (Number.isNaN(num)) return;
+    if (idx === 1) {
+      const next = { ...reminderTime1, [field]: clamp(num, field === 'hour' ? 0 : 0, field === 'hour' ? 23 : 59) };
+      setReminderTime1(next);
+      persist(next, reminderTime2);
+    } else {
+      const next = { ...reminderTime2, [field]: clamp(num, field === 'hour' ? 0 : 0, field === 'hour' ? 23 : 59) };
+      setReminderTime2(next);
+      persist(reminderTime1, next);
+    }
+  };
+
+  const persist = async (t1, t2) => {
     const settings = {
       notificationsEnabled,
       dailyReminderEnabled,
-      reminderTime: newTime,
+      reminderTime1: t1,
+      reminderTime2: t2,
     };
-    saveSettings(settings);
+    await saveSettings(settings);
+    if (dailyReminderEnabled) {
+      await syncScheduleWithServer(t1, t2);
+    }
+  };
+
+  const syncScheduleWithServer = async (t1, t2) => {
+    try {
+      const key = localStorage.getItem('db-sub-key');
+      const token = localStorage.getItem('db-sub-token');
+      const timezone = localStorage.getItem('db-timezone');
+      if (!key || !token) return;
+      await fetch('/.netlify/functions/updateSchedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          key,
+          timezone,
+          schedule: [formatTime(t1), formatTime(t2)]
+        })
+      });
+    } catch (e) {
+      console.log('schedule sync error', e);
+    }
   };
 
   const timeOptions = [
@@ -183,28 +221,32 @@ const SettingsModal = ({ visible, onClose }) => {
                   </View>
 
                   {dailyReminderEnabled && (
-                    <View style={styles.settingRow}>
-                      <Text style={styles.settingLabel}>Erinnerungszeit</Text>
-                      <View style={styles.timeSelector}>
-                        {timeOptions.map((time) => (
-                          <TouchableOpacity
-                            key={time.hour}
-                            style={[
-                              styles.timeOption,
-                              reminderTime.hour === time.hour && styles.timeOptionSelected
-                            ]}
-                            onPress={() => changeReminderTime(time.hour)}
-                          >
-                            <Text style={[
-                              styles.timeOptionText,
-                              reminderTime.hour === time.hour && styles.timeOptionTextSelected
-                            ]}>
-                              {time.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
+                    <>
+                      <View style={styles.settingRow}>
+                        <Text style={styles.settingLabel}>Zeit 1 (HH:MM)</Text>
+                        <View style={styles.timeInputs}>
+                          <TouchableOpacity onPress={() => onChangeTime(1, 'hour', String((reminderTime1.hour + 23) % 24))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
+                          <Text style={styles.timeDisplay}>{to2(reminderTime1.hour)}</Text>
+                          <TouchableOpacity onPress={() => onChangeTime(1, 'hour', String((reminderTime1.hour + 1) % 24))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
+                          <Text style={styles.colon}>:</Text>
+                          <TouchableOpacity onPress={() => onChangeTime(1, 'minute', String((reminderTime1.minute + 59) % 60))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
+                          <Text style={styles.timeDisplay}>{to2(reminderTime1.minute)}</Text>
+                          <TouchableOpacity onPress={() => onChangeTime(1, 'minute', String((reminderTime1.minute + 1) % 60))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
+                      <View style={styles.settingRow}>
+                        <Text style={styles.settingLabel}>Zeit 2 (HH:MM)</Text>
+                        <View style={styles.timeInputs}>
+                          <TouchableOpacity onPress={() => onChangeTime(2, 'hour', String((reminderTime2.hour + 23) % 24))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
+                          <Text style={styles.timeDisplay}>{to2(reminderTime2.hour)}</Text>
+                          <TouchableOpacity onPress={() => onChangeTime(2, 'hour', String((reminderTime2.hour + 1) % 24))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
+                          <Text style={styles.colon}>:</Text>
+                          <TouchableOpacity onPress={() => onChangeTime(2, 'minute', String((reminderTime2.minute + 59) % 60))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
+                          <Text style={styles.timeDisplay}>{to2(reminderTime2.minute)}</Text>
+                          <TouchableOpacity onPress={() => onChangeTime(2, 'minute', String((reminderTime2.minute + 1) % 60))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
+                        </View>
+                      </View>
+                    </>
                   )}
 
                   <TouchableOpacity
@@ -309,6 +351,26 @@ const styles = StyleSheet.create({
   timeOptionTextSelected: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  timeInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  arrow: {
+    width: 20,
+    textAlign: 'center',
+    color: '#666',
+  },
+  timeDisplay: {
+    width: 28,
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#333',
+  },
+  colon: {
+    fontSize: 16,
+    color: '#333',
   },
   testButton: {
     backgroundColor: '#FF9800',

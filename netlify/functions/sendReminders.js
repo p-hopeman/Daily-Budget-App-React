@@ -14,7 +14,7 @@ function ensureVapid() {
 }
 
 export const config = {
-  schedule: '0 9,20 * * *' // UTC by default; we filter by user timezone below if needed
+  schedule: '*/1 * * * *' // jede Minute ausführen, wir filtern client-spezifisch nach HH:MM
 };
 
 export async function handler() {
@@ -31,8 +31,13 @@ export async function handler() {
       const subEntry = JSON.parse(subRaw);
       const tz = subEntry.timezone || 'Europe/Berlin';
       const local = new Date(nowUtc.toLocaleString('en-US', { timeZone: tz }));
-      const hour = local.getHours();
-      if (hour !== 9 && hour !== 20) continue;
+      const hh = local.getHours();
+      const mm = local.getMinutes();
+      const hhmm = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+      const schedule = Array.isArray(subEntry.schedule) && subEntry.schedule.length > 0
+        ? subEntry.schedule
+        : ['09:00', '20:00'];
+      if (!schedule.includes(hhmm)) continue;
 
       const budgetRaw = await budgetsStore.get(key);
       const budgetEntry = budgetRaw ? JSON.parse(budgetRaw) : {};
@@ -43,7 +48,7 @@ export async function handler() {
         title: '💸 Daily Budget',
         body,
         icon: '/assets/DailyBudget_icon_48x48.png',
-        tag: `daily-budget-${hour}`
+        tag: `daily-budget-${hhmm}`
       });
 
       const subscription = subEntry.subscription;

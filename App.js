@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import NotificationService from './NotificationService';
+import SettingsModal from './SettingsModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -703,60 +704,7 @@ export default function App() {
               <View style={styles.headerSpacer} />
               <TouchableOpacity
                 style={styles.settingsButton}
-                onPress={() => {
-                  console.log('🔔 Button wurde geklickt!');
-                  Alert.alert('🔔 Debug', 'Button funktioniert!', [
-                    {
-                      text: 'Test Notification',
-                      onPress: async () => {
-                        console.log('Teste Benachrichtigungen...');
-                        try {
-                          if (Platform.OS === 'web') {
-                            console.log('Web-Plattform erkannt');
-                            console.log('Notification-Support:', 'Notification' in window);
-                            console.log('Permission Status:', Notification.permission);
-                            
-                            if ('Notification' in window) {
-                              if (Notification.permission === 'default') {
-                                console.log('Fordere Berechtigung an...');
-                                const permission = await Notification.requestPermission();
-                                console.log('Permission Antwort:', permission);
-                                
-                                if (permission === 'granted') {
-                                  console.log('Sende Test-Notification...');
-                                  const notification = new Notification('💸 Test erfolgreich!', {
-                                    body: 'Benachrichtigungen funktionieren jetzt!',
-                                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+'
-                                  });
-                                  Alert.alert('✅ Erfolgreich', 'Benachrichtigungen sind aktiv!');
-                                } else {
-                                  Alert.alert('❌ Abgelehnt', 'Benachrichtigungen wurden abgelehnt.');
-                                }
-                              } else if (Notification.permission === 'granted') {
-                                console.log('Sende Test-Notification...');
-                                const notification = new Notification('💸 Test erfolgreich!', {
-                                  body: 'Benachrichtigungen funktionieren bereits!',
-                                  icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPvCfkrg8L3RleHQ+PC9zdmc+'
-                                });
-                                Alert.alert('✅ Bereits aktiv', 'Benachrichtigungen sind bereits aktiv!');
-                              } else {
-                                Alert.alert('❌ Blockiert', 'Benachrichtigungen sind blockiert. Aktiviere sie in den Browser-Einstellungen.');
-                              }
-                            } else {
-                              Alert.alert('❌ Nicht unterstützt', 'Dieser Browser unterstützt keine Benachrichtigungen.');
-                            }
-                          } else {
-                            Alert.alert('Info', 'Native App - Benachrichtigungen bereits konfiguriert');
-                          }
-                        } catch (error) {
-                          console.error('Fehler:', error);
-                          Alert.alert('❌ Fehler', `Fehler beim Aktivieren: ${error.message}`);
-                        }
-                      }
-                    },
-                    { text: 'Abbrechen', style: 'cancel' }
-                  ]);
-                }}
+                onPress={() => setShowingSettings(true)}
               >
                 <Ionicons 
                   name="settings-outline" 
@@ -1043,6 +991,11 @@ export default function App() {
           </View>
         </View>
       )}
+      {/* Settings Modal */}
+      <SettingsModal
+        visible={showingSettings}
+        onClose={() => setShowingSettings(false)}
+      />
     </SafeAreaView>
   );
 }
