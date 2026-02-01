@@ -8,6 +8,7 @@ import {
   Alert,
   StyleSheet,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -125,8 +126,31 @@ const SettingsModal = ({ visible, onClose }) => {
       return;
     }
 
-    await NotificationService.sendBudgetNotification(25.50, 150.00, 6);
-    Alert.alert('📱 Test-Benachrichtigung gesendet!');
+    try {
+      if (Platform.OS === 'web') {
+        const key = localStorage.getItem('db-sub-key');
+        if (!key) {
+          Alert.alert('⚠️ Keine Push-Subscription gefunden', 'Bitte App neu öffnen, damit die Subscription erstellt wird.');
+          return;
+        }
+        const res = await fetch('/.netlify/functions/testPush', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key })
+        });
+        if (!res.ok) {
+          const msg = await res.text();
+          throw new Error(msg || 'Test-Push fehlgeschlagen');
+        }
+        Alert.alert('📱 Test-Benachrichtigung gesendet!');
+      } else {
+        await NotificationService.sendBudgetNotification(25.50, 150.00, 6);
+        Alert.alert('📱 Test-Benachrichtigung gesendet!');
+      }
+    } catch (e) {
+      console.error('Test-Push Fehler:', e);
+      Alert.alert('❌ Fehler', 'Test-Benachrichtigung konnte nicht gesendet werden.');
+    }
   };
 
   const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
