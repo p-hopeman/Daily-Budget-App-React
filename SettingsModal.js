@@ -142,7 +142,14 @@ const SettingsModal = ({ visible, onClose }) => {
         }
 
         const ensureKey = async (forceResubscribe = false) => {
-          const reg = await navigator.serviceWorker.ready;
+          setTestStatus('Service Worker prüfen...');
+          let reg = await navigator.serviceWorker.getRegistration();
+          if (!reg) {
+            setTestStatus('Service Worker registrieren...');
+            reg = await navigator.serviceWorker.register('/sw.js');
+          }
+          await navigator.serviceWorker.ready;
+          reg = await navigator.serviceWorker.ready;
           let sub = await reg.pushManager.getSubscription();
           if (sub && forceResubscribe) {
             try {
@@ -151,6 +158,7 @@ const SettingsModal = ({ visible, onClose }) => {
             sub = null;
           }
           if (!sub) {
+            setTestStatus('Push-Subscription erstellen...');
             const res = await fetch('/.netlify/functions/publicVapidKey', { cache: 'no-store' });
             const { publicKey } = await res.json();
             const padding = '='.repeat((4 - (publicKey.length % 4)) % 4);
@@ -160,11 +168,16 @@ const SettingsModal = ({ visible, onClose }) => {
             sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey });
           }
           const timezone = localStorage.getItem('db-timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+          setTestStatus('Subscription am Server speichern...');
           const resp = await fetch('/.netlify/functions/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ timezone, subscription: sub })
           });
+          if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(text || `subscribe failed (${resp.status})`);
+          }
           const data = await resp.json().catch(() => ({}));
           if (data?.key) {
             localStorage.setItem('db-sub-key', data.key);
