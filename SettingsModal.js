@@ -137,9 +137,15 @@ const SettingsModal = ({ visible, onClose }) => {
           return;
         }
 
-        const ensureKey = async () => {
+        const ensureKey = async (forceResubscribe = false) => {
           const reg = await navigator.serviceWorker.ready;
           let sub = await reg.pushManager.getSubscription();
+          if (sub && forceResubscribe) {
+            try {
+              await sub.unsubscribe();
+            } catch {}
+            sub = null;
+          }
           if (!sub) {
             const res = await fetch('/.netlify/functions/publicVapidKey', { cache: 'no-store' });
             const { publicKey } = await res.json();
@@ -166,12 +172,20 @@ const SettingsModal = ({ visible, onClose }) => {
           throw new Error('Keine Push-Subscription verfügbar');
         };
 
-        const key = await ensureKey();
-        const res = await fetch('/.netlify/functions/testPush', {
+        let key = await ensureKey();
+        let res = await fetch('/.netlify/functions/testPush', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key })
         });
+        if (res.status === 404) {
+          key = await ensureKey(true);
+          res = await fetch('/.netlify/functions/testPush', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key })
+          });
+        }
         if (!res.ok) {
           const msg = await res.text();
           throw new Error(msg || 'Test-Push fehlgeschlagen');
@@ -183,7 +197,7 @@ const SettingsModal = ({ visible, onClose }) => {
       }
     } catch (e) {
       console.error('Test-Push Fehler:', e);
-      Alert.alert('❌ Fehler', 'Test-Benachrichtigung konnte nicht gesendet werden.');
+      Alert.alert('❌ Fehler', e?.message || 'Test-Benachrichtigung konnte nicht gesendet werden.');
     }
   };
 

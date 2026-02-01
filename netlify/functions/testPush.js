@@ -7,9 +7,9 @@ function ensureVapid() {
   const publicKey = process.env.VAPID_PUBLIC_KEY || '';
   const privateKey = process.env.VAPID_PRIVATE_KEY || '';
   const subject = process.env.VAPID_SUBJECT || 'mailto:example@example.com';
-  if (publicKey && privateKey) {
-    webpush.setVapidDetails(subject, publicKey, privateKey);
-  }
+  if (!publicKey || !privateKey) return false;
+  webpush.setVapidDetails(subject, publicKey, privateKey);
+  return true;
 }
 
 // POST { key } → sendet sofort eine Test-Push-Nachricht an die gegebene Subscription
@@ -18,7 +18,9 @@ export async function handler(event) {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
   try {
-    ensureVapid();
+    if (!ensureVapid()) {
+      return { statusCode: 500, body: 'VAPID keys missing' };
+    }
     const { key } = JSON.parse(event.body || '{}');
     if (!key) return { statusCode: 400, body: 'Missing key' };
     const subRaw = await subsStore.get(key);
@@ -36,5 +38,8 @@ export async function handler(event) {
     return { statusCode: 500, body: `testPush error: ${e.message}` };
   }
 }
+
+
+
 
 
