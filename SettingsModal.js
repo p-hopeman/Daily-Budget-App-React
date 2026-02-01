@@ -136,9 +136,13 @@ const SettingsModal = ({ visible, onClose }) => {
           return;
         }
         if (Notification.permission !== 'granted') {
-          setTestStatus('Keine Berechtigung: Bitte Benachrichtigungen erlauben.');
-          Alert.alert('❌ Keine Berechtigung', 'Bitte Benachrichtigungen in iOS/Safari erlauben.');
-          return;
+          setTestStatus('Berechtigung anfragen...');
+          const perm = await Notification.requestPermission().catch(() => 'default');
+          if (perm !== 'granted') {
+            setTestStatus('Keine Berechtigung: Bitte Benachrichtigungen erlauben.');
+            Alert.alert('❌ Keine Berechtigung', 'Bitte Benachrichtigungen in iOS/Safari erlauben.');
+            return;
+          }
         }
 
         const ensureKey = async (forceResubscribe = false) => {
@@ -150,6 +154,9 @@ const SettingsModal = ({ visible, onClose }) => {
           }
           await navigator.serviceWorker.ready;
           reg = await navigator.serviceWorker.ready;
+          if (!reg?.pushManager) {
+            throw new Error('PushManager nicht verfügbar');
+          }
           let sub = await reg.pushManager.getSubscription();
           if (sub && forceResubscribe) {
             try {
@@ -160,12 +167,21 @@ const SettingsModal = ({ visible, onClose }) => {
           if (!sub) {
             setTestStatus('Push-Subscription erstellen...');
             const res = await fetch('/.netlify/functions/publicVapidKey', { cache: 'no-store' });
+            if (!res.ok) {
+              const msg = await res.text();
+              throw new Error(msg || `publicVapidKey fehlgeschlagen (${res.status})`);
+            }
             const { publicKey } = await res.json();
+            if (!publicKey) throw new Error('VAPID Public Key fehlt');
             const padding = '='.repeat((4 - (publicKey.length % 4)) % 4);
             const base64 = (publicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
             const rawData = atob(base64);
             const appServerKey = new Uint8Array([...rawData].map((c) => c.charCodeAt(0)));
-            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey });
+            try {
+              sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey });
+            } catch (e) {
+              throw new Error(`subscribe fehlgeschlagen: ${e?.message || 'unbekannt'}`);
+            }
           }
           const timezone = localStorage.getItem('db-timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
           setTestStatus('Subscription am Server speichern...');
