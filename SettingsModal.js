@@ -128,11 +128,45 @@ const SettingsModal = ({ visible, onClose }) => {
 
     try {
       if (Platform.OS === 'web') {
-        const key = localStorage.getItem('db-sub-key');
-        if (!key) {
-          Alert.alert('⚠️ Keine Push-Subscription gefunden', 'Bitte App neu öffnen, damit die Subscription erstellt wird.');
+        if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+          Alert.alert('❌ Nicht unterstützt', 'Push-Benachrichtigungen werden hier nicht unterstützt.');
           return;
         }
+        if (Notification.permission !== 'granted') {
+          Alert.alert('❌ Keine Berechtigung', 'Bitte Benachrichtigungen in iOS/Safari erlauben.');
+          return;
+        }
+
+        const ensureKey = async () => {
+          const reg = await navigator.serviceWorker.ready;
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            const res = await fetch('/.netlify/functions/publicVapidKey', { cache: 'no-store' });
+            const { publicKey } = await res.json();
+            const padding = '='.repeat((4 - (publicKey.length % 4)) % 4);
+            const base64 = (publicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = atob(base64);
+            const appServerKey = new Uint8Array([...rawData].map((c) => c.charCodeAt(0)));
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey });
+          }
+          const timezone = localStorage.getItem('db-timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+          const resp = await fetch('/.netlify/functions/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timezone, subscription: sub })
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (data?.key) {
+            localStorage.setItem('db-sub-key', data.key);
+            if (data?.token) localStorage.setItem('db-sub-token', data.token);
+            return data.key;
+          }
+          const existing = localStorage.getItem('db-sub-key');
+          if (existing) return existing;
+          throw new Error('Keine Push-Subscription verfügbar');
+        };
+
+        const key = await ensureKey();
         const res = await fetch('/.netlify/functions/testPush', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
