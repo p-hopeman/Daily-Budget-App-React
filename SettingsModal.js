@@ -20,6 +20,7 @@ const SettingsModal = ({ visible, onClose }) => {
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState(true);
   const [reminderTime1, setReminderTime1] = useState({ hour: 9, minute: 0 });
   const [reminderTime2, setReminderTime2] = useState({ hour: 20, minute: 0 });
+  const [testStatus, setTestStatus] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -127,12 +128,15 @@ const SettingsModal = ({ visible, onClose }) => {
     }
 
     try {
+      setTestStatus('Sende Testbenachrichtigung...');
       if (Platform.OS === 'web') {
         if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+          setTestStatus('Nicht unterstützt: Push in diesem Browser nicht verfügbar.');
           Alert.alert('❌ Nicht unterstützt', 'Push-Benachrichtigungen werden hier nicht unterstützt.');
           return;
         }
         if (Notification.permission !== 'granted') {
+          setTestStatus('Keine Berechtigung: Bitte Benachrichtigungen erlauben.');
           Alert.alert('❌ Keine Berechtigung', 'Bitte Benachrichtigungen in iOS/Safari erlauben.');
           return;
         }
@@ -190,13 +194,16 @@ const SettingsModal = ({ visible, onClose }) => {
           const msg = await res.text();
           throw new Error(msg || 'Test-Push fehlgeschlagen');
         }
+        setTestStatus('Testbenachrichtigung gesendet ✅');
         Alert.alert('📱 Test-Benachrichtigung gesendet!');
       } else {
         await NotificationService.sendBudgetNotification(25.50, 150.00, 6);
+        setTestStatus('Testbenachrichtigung gesendet ✅');
         Alert.alert('📱 Test-Benachrichtigung gesendet!');
       }
     } catch (e) {
       console.error('Test-Push Fehler:', e);
+      setTestStatus(`Fehler: ${e?.message || 'Testbenachrichtigung konnte nicht gesendet werden.'}`);
       Alert.alert('❌ Fehler', e?.message || 'Test-Benachrichtigung konnte nicht gesendet werden.');
     }
   };
@@ -310,6 +317,9 @@ const SettingsModal = ({ visible, onClose }) => {
               >
                 <Text style={styles.testButtonText}>🧪 Test-Benachrichtigung senden</Text>
               </TouchableOpacity>
+              {!!testStatus && (
+                <Text style={styles.testStatusText}>{testStatus}</Text>
+              )}
             </View>
 
             {/* Info */}
@@ -436,6 +446,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  testStatusText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
   },
   infoText: {
     fontSize: 14,
