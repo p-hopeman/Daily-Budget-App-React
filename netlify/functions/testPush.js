@@ -1,7 +1,13 @@
 import webpush from 'web-push';
 import { getStore } from '@netlify/blobs';
 
-const subsStore = getStore('subscriptions');
+function getStores() {
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
+  const token = process.env.NETLIFY_API_TOKEN || process.env.NETLIFY_BLOBS_TOKEN;
+  const opts = siteID && token ? { siteID, token } : null;
+  const subsStore = opts ? getStore({ name: 'subscriptions', ...opts }) : getStore('subscriptions');
+  return { subsStore };
+}
 
 function ensureVapid() {
   const publicKey = process.env.VAPID_PUBLIC_KEY || '';
@@ -21,6 +27,7 @@ export async function handler(event) {
     if (!ensureVapid()) {
       return { statusCode: 500, body: 'VAPID keys missing' };
     }
+    const { subsStore } = getStores();
     const { key } = JSON.parse(event.body || '{}');
     if (!key) return { statusCode: 400, body: 'Missing key' };
     const subRaw = await subsStore.get(key);

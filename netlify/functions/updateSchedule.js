@@ -1,7 +1,13 @@
 import crypto from 'crypto';
 import { getStore } from '@netlify/blobs';
 
-const subsStore = getStore('subscriptions');
+function getStores() {
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
+  const token = process.env.NETLIFY_API_TOKEN || process.env.NETLIFY_BLOBS_TOKEN;
+  const opts = siteID && token ? { siteID, token } : null;
+  const subsStore = opts ? getStore({ name: 'subscriptions', ...opts }) : getStore('subscriptions');
+  return { subsStore };
+}
 
 function verifyToken(endpoint, token) {
   const secret = process.env.HMAC_SECRET || '';
@@ -14,6 +20,7 @@ export async function handler(event) {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
   try {
+    const { subsStore } = getStores();
     const auth = event.headers.authorization || '';
     const { key, timezone, schedule } = JSON.parse(event.body || '{}');
     if (!key || !Array.isArray(schedule)) return { statusCode: 400, body: 'Bad Request' };
@@ -39,5 +46,8 @@ export async function handler(event) {
     return { statusCode: 500, body: `updateSchedule error: ${e.message}` };
   }
 }
+
+
+
 
 

@@ -1,8 +1,14 @@
 import webpush from 'web-push';
 import { getStore } from '@netlify/blobs';
 
-const subsStore = getStore('subscriptions');
-const budgetsStore = getStore('budgets');
+function getStores() {
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
+  const token = process.env.NETLIFY_API_TOKEN || process.env.NETLIFY_BLOBS_TOKEN;
+  const opts = siteID && token ? { siteID, token } : null;
+  const subsStore = opts ? getStore({ name: 'subscriptions', ...opts }) : getStore('subscriptions');
+  const budgetsStore = opts ? getStore({ name: 'budgets', ...opts }) : getStore('budgets');
+  return { subsStore, budgetsStore };
+}
 
 function ensureVapid() {
   const publicKey = process.env.VAPID_PUBLIC_KEY || '';
@@ -19,6 +25,7 @@ export const config = {
 
 export async function handler() {
   try {
+    const { subsStore, budgetsStore } = getStores();
     ensureVapid();
     const nowUtc = new Date();
 
