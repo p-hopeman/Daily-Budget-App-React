@@ -300,6 +300,7 @@ const SettingsModal = ({ visible, onClose }) => {
       const token = localStorage.getItem('db-sub-token');
       const timezone = localStorage.getItem('db-timezone');
       if (!key || !token) return;
+      setServerStatus('Server: speichere...');
       const res = await fetch('/.netlify/functions/updateSchedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -313,7 +314,9 @@ const SettingsModal = ({ visible, onClose }) => {
         const msg = await res.text();
         setServerStatus(`Server-Fehler: ${msg || res.status}`);
       } else {
-        setServerStatus(`Server: ${formatTime(t1)}, ${formatTime(t2)}`);
+        const data = await res.json().catch(() => ({}));
+        const schedule = Array.isArray(data?.schedule) ? data.schedule.join(', ') : `${formatTime(t1)}, ${formatTime(t2)}`;
+        setServerStatus(`Server gespeichert: ${schedule}`);
       }
     } catch (e) {
       console.log('schedule sync error', e);
@@ -412,6 +415,7 @@ const SettingsModal = ({ visible, onClose }) => {
                 style={styles.saveButton}
                 onPress={async () => {
                   await syncScheduleWithServer(reminderTime1, reminderTime2);
+                  await new Promise((r) => setTimeout(r, 500));
                   await fetchServerSchedule();
                 }}
               >
