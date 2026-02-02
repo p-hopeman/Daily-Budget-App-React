@@ -246,6 +246,14 @@ const SettingsModal = ({ visible, onClose }) => {
   const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
   const to2 = (n) => n.toString().padStart(2, '0');
   const formatTime = (t) => `${to2(t.hour)}:${to2(t.minute)}`;
+  const parseHHMM = (input) => {
+    if (!input) return null;
+    const m = input.trim().match(/^(\d{1,2}):(\d{1,2})$/);
+    if (!m) return null;
+    const h = clamp(parseInt(m[1], 10), 0, 23);
+    const mm = clamp(parseInt(m[2], 10), 0, 59);
+    return { hour: h, minute: mm };
+  };
 
   const onChangeTime = (idx, field, value) => {
     const num = parseInt(value.replace(/\\D/g, ''), 10);
@@ -261,6 +269,21 @@ const SettingsModal = ({ visible, onClose }) => {
     }
   };
 
+  const editTimePrompt = (idx) => {
+    if (Platform.OS !== 'web') return;
+    const current = idx === 1 ? reminderTime1 : reminderTime2;
+    const input = window.prompt('Zeit eingeben (HH:MM)', formatTime(current));
+    const parsed = parseHHMM(input);
+    if (!parsed) return;
+    if (idx === 1) {
+      setReminderTime1(parsed);
+      persist(parsed, reminderTime2);
+    } else {
+      setReminderTime2(parsed);
+      persist(reminderTime1, parsed);
+    }
+  };
+
   const persist = async (t1, t2) => {
     const settings = {
       notificationsEnabled,
@@ -269,10 +292,6 @@ const SettingsModal = ({ visible, onClose }) => {
       reminderTime2: t2,
     };
     await saveSettings(settings);
-    if (dailyReminderEnabled) {
-      await syncScheduleWithServer(t1, t2);
-    }
-    await fetchServerSchedule();
   };
 
   const syncScheduleWithServer = async (t1, t2) => {
@@ -361,11 +380,15 @@ const SettingsModal = ({ visible, onClose }) => {
                 <Text style={styles.settingLabel}>Zeit 1 (HH:MM)</Text>
                 <View style={styles.timeInputs}>
                   <TouchableOpacity onPress={() => onChangeTime(1, 'hour', String((reminderTime1.hour + 23) % 24))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
-                  <Text style={styles.timeDisplay}>{to2(reminderTime1.hour)}</Text>
+                  <TouchableOpacity onPress={() => editTimePrompt(1)}>
+                    <Text style={styles.timeDisplay}>{to2(reminderTime1.hour)}</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => onChangeTime(1, 'hour', String((reminderTime1.hour + 1) % 24))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
                   <Text style={styles.colon}>:</Text>
                   <TouchableOpacity onPress={() => onChangeTime(1, 'minute', String((reminderTime1.minute + 59) % 60))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
-                  <Text style={styles.timeDisplay}>{to2(reminderTime1.minute)}</Text>
+                  <TouchableOpacity onPress={() => editTimePrompt(1)}>
+                    <Text style={styles.timeDisplay}>{to2(reminderTime1.minute)}</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => onChangeTime(1, 'minute', String((reminderTime1.minute + 1) % 60))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
                 </View>
               </View>
@@ -373,14 +396,27 @@ const SettingsModal = ({ visible, onClose }) => {
                 <Text style={styles.settingLabel}>Zeit 2 (HH:MM)</Text>
                 <View style={styles.timeInputs}>
                   <TouchableOpacity onPress={() => onChangeTime(2, 'hour', String((reminderTime2.hour + 23) % 24))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
-                  <Text style={styles.timeDisplay}>{to2(reminderTime2.hour)}</Text>
+                  <TouchableOpacity onPress={() => editTimePrompt(2)}>
+                    <Text style={styles.timeDisplay}>{to2(reminderTime2.hour)}</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => onChangeTime(2, 'hour', String((reminderTime2.hour + 1) % 24))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
                   <Text style={styles.colon}>:</Text>
                   <TouchableOpacity onPress={() => onChangeTime(2, 'minute', String((reminderTime2.minute + 59) % 60))}><Text style={styles.arrow}>▲</Text></TouchableOpacity>
-                  <Text style={styles.timeDisplay}>{to2(reminderTime2.minute)}</Text>
+                  <TouchableOpacity onPress={() => editTimePrompt(2)}>
+                    <Text style={styles.timeDisplay}>{to2(reminderTime2.minute)}</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => onChangeTime(2, 'minute', String((reminderTime2.minute + 1) % 60))}><Text style={styles.arrow}>▼</Text></TouchableOpacity>
                 </View>
               </View>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={async () => {
+                  await syncScheduleWithServer(reminderTime1, reminderTime2);
+                  await fetchServerSchedule();
+                }}
+              >
+                <Text style={styles.saveButtonText}>💾 Speichern</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.testButton}
                 onPress={sendTestNotification}
@@ -516,6 +552,18 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   testButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    backgroundColor: '#4CAF50',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  saveButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
