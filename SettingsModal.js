@@ -35,8 +35,13 @@ const SettingsModal = ({ visible, onClose }) => {
         // Immer aktiv anzeigen, Button entfällt
         setNotificationsEnabled(true);
         setDailyReminderEnabled(true);
-        setReminderTime1(parsed.reminderTime1 || { hour: 9, minute: 0 });
-        setReminderTime2(parsed.reminderTime2 || { hour: 20, minute: 0 });
+        const t1 = parsed.reminderTime1 || { hour: 9, minute: 0 };
+        const t2 = parsed.reminderTime2 || { hour: 20, minute: 0 };
+        setReminderTime1(t1);
+        setReminderTime2(t2);
+        // Server-Zeitplan mit den geladenen Werten synchronisieren
+        await syncScheduleWithServer(t1, t2);
+        await fetchServerSchedule();
       } else {
         // Defaults initial speichern
         await saveSettings({
@@ -45,10 +50,9 @@ const SettingsModal = ({ visible, onClose }) => {
           reminderTime1,
           reminderTime2,
         });
+        await syncScheduleWithServer(reminderTime1, reminderTime2);
+        await fetchServerSchedule();
       }
-      // Server-Zeitplan synchronisieren + lesen
-      await syncScheduleWithServer(reminderTime1, reminderTime2);
-      await fetchServerSchedule();
     } catch (error) {
       console.error('Fehler beim Laden der Einstellungen:', error);
     }
@@ -277,7 +281,7 @@ const SettingsModal = ({ visible, onClose }) => {
       const token = localStorage.getItem('db-sub-token');
       const timezone = localStorage.getItem('db-timezone');
       if (!key || !token) return;
-      await fetch('/.netlify/functions/updateSchedule', {
+      const res = await fetch('/.netlify/functions/updateSchedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -286,6 +290,12 @@ const SettingsModal = ({ visible, onClose }) => {
           schedule: [formatTime(t1), formatTime(t2)]
         })
       });
+      if (!res.ok) {
+        const msg = await res.text();
+        setServerStatus(`Server-Fehler: ${msg || res.status}`);
+      } else {
+        setServerStatus(`Server: ${formatTime(t1)}, ${formatTime(t2)}`);
+      }
     } catch (e) {
       console.log('schedule sync error', e);
     }
