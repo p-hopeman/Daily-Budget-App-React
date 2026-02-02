@@ -21,6 +21,7 @@ const SettingsModal = ({ visible, onClose }) => {
   const [reminderTime1, setReminderTime1] = useState({ hour: 9, minute: 0 });
   const [reminderTime2, setReminderTime2] = useState({ hour: 20, minute: 0 });
   const [testStatus, setTestStatus] = useState('');
+  const [serverStatus, setServerStatus] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -45,8 +46,9 @@ const SettingsModal = ({ visible, onClose }) => {
           reminderTime2,
         });
       }
-      // Server-Zeitplan synchronisieren
+      // Server-Zeitplan synchronisieren + lesen
       await syncScheduleWithServer(reminderTime1, reminderTime2);
+      await fetchServerSchedule();
     } catch (error) {
       console.error('Fehler beim Laden der Einstellungen:', error);
     }
@@ -266,6 +268,7 @@ const SettingsModal = ({ visible, onClose }) => {
     if (dailyReminderEnabled) {
       await syncScheduleWithServer(t1, t2);
     }
+    await fetchServerSchedule();
   };
 
   const syncScheduleWithServer = async (t1, t2) => {
@@ -285,6 +288,34 @@ const SettingsModal = ({ visible, onClose }) => {
       });
     } catch (e) {
       console.log('schedule sync error', e);
+    }
+  };
+
+  const fetchServerSchedule = async () => {
+    try {
+      if (Platform.OS !== 'web') return;
+      const key = localStorage.getItem('db-sub-key');
+      const token = localStorage.getItem('db-sub-token');
+      if (!key || !token) {
+        setServerStatus('Server: keine Subscription');
+        return;
+      }
+      const res = await fetch('/.netlify/functions/getSchedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ key })
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        setServerStatus(`Server-Fehler: ${msg || res.status}`);
+        return;
+      }
+      const data = await res.json();
+      const schedule = Array.isArray(data?.schedule) ? data.schedule.join(', ') : '—';
+      const tz = data?.timezone || '—';
+      setServerStatus(`Server: ${schedule} (TZ: ${tz})`);
+    } catch (e) {
+      setServerStatus('Server: Fehler beim Laden');
     }
   };
 
@@ -348,6 +379,9 @@ const SettingsModal = ({ visible, onClose }) => {
               </TouchableOpacity>
               {!!testStatus && (
                 <Text style={styles.testStatusText}>{testStatus}</Text>
+              )}
+              {!!serverStatus && (
+                <Text style={styles.testStatusText}>{serverStatus}</Text>
               )}
             </View>
 
