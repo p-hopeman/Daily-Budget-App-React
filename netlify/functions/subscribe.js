@@ -28,11 +28,19 @@ export async function handler(event) {
     const key = crypto.createHash('sha256').update(endpoint).digest('hex'); // key ohne PII
     const token = signToken(endpoint);
 
+    const existingRaw = await subsStore.get(key);
+    const existing = existingRaw ? JSON.parse(existingRaw) : null;
+    const schedule = Array.isArray(existing?.schedule) && existing.schedule.length > 0
+      ? existing.schedule
+      : undefined;
+
     await subsStore.set(key, JSON.stringify({
       endpoint,
       subscription,
-      timezone: timezone || 'Europe/Berlin',
-      createdAt: Date.now()
+      timezone: timezone || existing?.timezone || 'Europe/Berlin',
+      schedule,
+      createdAt: existing?.createdAt || Date.now(),
+      updatedAt: Date.now()
     }));
 
     return {
