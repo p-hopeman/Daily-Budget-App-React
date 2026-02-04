@@ -43,7 +43,9 @@ export async function handler() {
       const hhmm = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
       const schedule = Array.isArray(subEntry.schedule) && subEntry.schedule.length > 0
         ? subEntry.schedule
-        : ['09:00', '20:00'];
+        : (Array.isArray(budgetEntry?.schedule) && budgetEntry.schedule.length > 0
+          ? budgetEntry.schedule
+          : ['09:00', '20:00']);
       if (!schedule.includes(hhmm)) continue;
 
       const budgetRaw = await budgetsStore.get(key);

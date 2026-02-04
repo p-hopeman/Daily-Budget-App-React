@@ -33,11 +33,15 @@ export async function handler(event) {
     const sub = JSON.parse(subRaw);
     if (!verifyToken(sub.endpoint, token)) return { statusCode: 401, body: 'Invalid token' };
 
+    const existingRaw = await budgetsStore.get(key);
+    const existing = existingRaw ? JSON.parse(existingRaw) : {};
+
     await budgetsStore.set(key, JSON.stringify({
       dailyBudget: Number(dailyBudget) || 0,
       remainingBudget: Number(remainingBudget) || 0,
       remainingDays: Number(remainingDays) || 0,
-      timezone: sub.timezone || 'Europe/Berlin',
+      schedule: existing.schedule,
+      timezone: sub.timezone || existing.timezone || 'Europe/Berlin',
       updatedAt: Date.now()
     }));
     return { statusCode: 200, body: JSON.stringify({ ok: true, key }) };

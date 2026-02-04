@@ -6,7 +6,8 @@ function getStores() {
   const token = process.env.NETLIFY_API_TOKEN || process.env.NETLIFY_BLOBS_TOKEN;
   const opts = siteID && token ? { siteID, token } : null;
   const subsStore = opts ? getStore({ name: 'subscriptions', ...opts }) : getStore('subscriptions');
-  return { subsStore };
+  const budgetsStore = opts ? getStore({ name: 'budgets', ...opts }) : getStore('budgets');
+  return { subsStore, budgetsStore };
 }
 
 function verifyToken(endpoint, token) {
@@ -20,7 +21,7 @@ export async function handler(event) {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
   try {
-    const { subsStore } = getStores();
+    const { subsStore, budgetsStore } = getStores();
     const auth = event.headers.authorization || '';
     const { key, timezone, schedule } = JSON.parse(event.body || '{}');
     if (!key || !Array.isArray(schedule)) return { statusCode: 400, body: 'Bad Request' };
@@ -40,6 +41,15 @@ export async function handler(event) {
       updatedAt: Date.now()
     };
     await subsStore.set(key, JSON.stringify(updated));
+
+    const budgetRaw = await budgetsStore.get(key);
+    const budget = budgetRaw ? JSON.parse(budgetRaw) : {};
+    await budgetsStore.set(key, JSON.stringify({
+      ...budget,
+      schedule: updated.schedule,
+      timezone: updated.timezone || budget.timezone || 'Europe/Berlin',
+      updatedAt: Date.now()
+    }));
 
     return { statusCode: 200, body: JSON.stringify({ ok: true, schedule: updated.schedule }) };
   } catch (e) {
